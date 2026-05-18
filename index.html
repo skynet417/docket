@@ -46,7 +46,8 @@
   .nav-btn.active { background: var(--bg2); color: var(--cyan); box-shadow: inset 3px 0 0 var(--cyan); }
   .nav-icon { font-size: 16px; width: 18px; text-align: center; }
 
-  .sidebar-section { padding: 16px 20px; border-top: 1px solid var(--border); flex: 1; overflow-y: auto; }
+  .sidebar-section { padding: 16px 20px; border-top: 1px solid var(--border); flex: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .sidebar-section::-webkit-scrollbar { display: none; }
   .sidebar-label { font-size: 10px; color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 700; margin-bottom: 10px; }
   .upcoming-group { padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
   .upcoming-group:last-child { border-bottom: none; }
@@ -294,7 +295,7 @@
     <div id="view-cases">
       <div class="page-header">
         <div>
-          <div class="page-title">Active Caseload</div>
+          <div class="page-title">All Cases</div>
           <div class="page-sub" id="case-count-label">0 cases</div>
         </div>
         <button class="btn btn-primary" onclick="openNewCase()">＋ New Case</button>
@@ -606,7 +607,7 @@ function renderUpcoming() {
     if (!groups[d.caseName]) groups[d.caseName] = { caseName: d.caseName, caseId: d.caseId, caseNumber: d.caseNumber, dates: [] };
     groups[d.caseName].dates.push(d);
   });
-  const sorted = Object.values(groups).sort((a,b) => (a.dates[0]?.date||'').localeCompare(b.dates[0]?.date||'')).slice(0,7);
+  const sorted = Object.values(groups).sort((a,b) => (a.dates[0]?.date||'').localeCompare(b.dates[0]?.date||''));
 
   const el = document.getElementById('upcoming-list');
   if (!sorted.length) { el.innerHTML = '<div style="font-size:12px;color:var(--dim)">No upcoming dates</div>'; return; }
