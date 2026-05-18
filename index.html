@@ -306,7 +306,7 @@
     </div>
 
     <div id="view-detail" class="hidden">
-      <button class="back-btn" onclick="showView('cases')">← All Cases</button>
+      <button class="back-btn" onclick="showView('cases')">← Case Management</button>
       <div class="detail-header">
         <div>
           <div class="detail-casenum" id="det-casenum"></div>
@@ -556,16 +556,37 @@ function daysUntil(iso) {
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 // ─── Views ──────────────────────────────────────────────────────────
-function showView(v) {
+function showView(v, pushState=true) {
   document.getElementById('view-cases').classList.toggle('hidden', v !== 'cases');
   document.getElementById('view-detail').classList.toggle('hidden', v !== 'detail');
   document.getElementById('view-calendar').classList.toggle('hidden', v !== 'calendar');
   ['cases','calendar'].forEach(n => document.getElementById('nav-'+n)?.classList.toggle('active', n === v));
   state.currentView = v;
+  if (pushState) {
+    const stateObj = { view: v, caseId: state.currentCaseId };
+    if (v === 'detail') history.pushState(stateObj, '', '#case-' + state.currentCaseId);
+    else if (v === 'cases') history.pushState(stateObj, '', '#cases');
+    else if (v === 'calendar') history.pushState(stateObj, '', '#calendar');
+  }
   if (v === 'cases') renderCases();
   if (v === 'calendar') renderCalendar();
   renderUpcoming();
 }
+
+// Handle browser back/forward
+window.addEventListener('popstate', (e) => {
+  if (!e.state) { showView('cases', false); return; }
+  if (e.state.view === 'detail' && e.state.caseId) {
+    state.currentCaseId = e.state.caseId;
+    currentTab = 'overview';
+    showView('detail', false);
+    renderDetail();
+  } else if (e.state.view === 'calendar') {
+    showView('calendar', false);
+  } else {
+    showView('cases', false);
+  }
+});
 
 // ─── Upcoming sidebar ────────────────────────────────────────────────
 function renderUpcoming() {
@@ -685,7 +706,7 @@ function setTab(t) {
       <div style="margin:22px 0 0">
         <div class="section-head"><div class="section-title">Add Court Date</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:16px">
-          <div class="field" style="margin:0"><label>Date</label><input type="date" id="quick-cd-date" value="${today}"></div>
+          <div class="field" style="margin:0"><label>Date</label><input type="date" id="quick-cd-date" value="${today}" style="cursor:pointer;color:var(--text);" onclick="this.showPicker&&this.showPicker()"></div>
           <div class="field" style="margin:0"><label>For</label>
             <select id="quick-cd-type">
               <option>Discussion</option>
