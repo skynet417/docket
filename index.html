@@ -1002,12 +1002,12 @@ async function handlePdfFile(file) {
 function parseDocket(text, filename) {
   document.getElementById('parse-status').textContent = '🔍 Scanning for your cases...';
 
-  // Extract docket date from filename or text
-  const dateMatch = filename.match(/(\d{8})/) || text.match(/(\w+ \d+,? \d{4})/);
+  // Extract docket date — look for MM/DD/YYYY pattern in text first
   let docketDate = todayISO();
-  const filenameDate = filename.match(/(\d{2})(\d{2})(\d{4})/);
-  if (filenameDate) docketDate = `${filenameDate[3]}-${filenameDate[1]}-${filenameDate[2]}`;
-  else {
+  const mdyMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdyMatch) {
+    docketDate = `${mdyMatch[3]}-${String(mdyMatch[1]).padStart(2,'0')}-${String(mdyMatch[2]).padStart(2,'0')}`;
+  } else {
     const textDate = text.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
     if (textDate) {
       const months = { January:'01',February:'02',March:'03',April:'04',May:'05',June:'06',July:'07',August:'08',September:'09',October:'10',November:'11',December:'12' };
@@ -1016,48 +1016,64 @@ function parseDocket(text, filename) {
     }
   }
 
-  // Split into case blocks — each block starts with a case number pattern
-  const blocks = text.split(/(?=16[A-Z]{2}\d-\d{4}-[A-Z]{2}-\d+)/);
-  const myAtty = /Pl\s*Atty[:\s]+Jason\s+Ponder/i;
+  // Normalize text — pdf.js sometimes merges words; add spaces around known patterns
+  const norm = text
+    .replace(/(\d{2}CC\d-\d{4}-[A-Z]{2}-\d+)/g, '\n$1\n')
+    .replace(/Pl\s*Atty\s*:/g, '\nPl Atty:')
+    .replace(/Hearing\s*Type\s*:/g, '\nHearing Type:')
+    .replace(/Hearing\s*Notes\s*:/g, '\nHearing Notes:')
+    .replace(/ST\.\s*of\s*TN\s+vs?\s+/gi, '\nST. of TN vs ');
+
+  // Split into blocks by case number
+  const blocks = norm.split(/\n(?=\d{2}CC\d-\d{4}-[A-Z]{2}-\d+)/);
+  const myAtty = /Pl\s*Atty\s*:\s*Jason\s+Ponder/i;
   const found = [];
 
   blocks.forEach(block => {
     if (!myAtty.test(block)) return;
-    // Extract case number
-    const cnMatch = block.match(/(16[A-Z]{2}\d-\d{4}-[A-Z]{2}-\d+)/);
+
+    // Case number
+    const cnMatch = block.match(/(\d{2}CC\d-\d{4}-[A-Z]{2}-\d+)/);
     if (!cnMatch) return;
     const caseNumber = cnMatch[1].trim();
-    // Extract defendant name — comes after case number on next line
-    const defMatch = block.match(/(?:ST\.\s*of\s*TN\s+vs?\s+)([A-Z][A-Z ,'.()-]+?)(?:\s{2,}|\n)/i);
-    const defendant = defMatch ? defMatch[1].replace(/\s+/g,' ').trim() : '';
-    // Extract hearing type
-    const htMatch = block.match(/Hearing\s*Type[:\s]+([^\n\r]+)/i);
-    const hearingType = htMatch ? htMatch[1].trim() : 'Hearing';
+
+    // Defendant — after "ST. of TN vs"
+    const defMatch = block.match(/ST\.\s*of\s*TN\s+vs?\s+([A-Z][A-Z ,'.()&-]+?)(?:\s{2,}|\n|Atty:)/i);
+    const rawDef = defMatch ? defMatch[1].replace(/\s+/g,' ').trim() : '';
+    // Clean up "(et. al)" etc
+    const defendant = rawDef.replace(/\s*\(et\.\s*al\)\s*/i, '').trim();
+
+    // Hearing type
+    const htMatch = block.match(/Hearing\s*Type\s*:\s*([^\n\r]+)/i);
+    const hearingType = htMatch ? htMatch[1].trim() : 'Discussion';
+
     // Map hearing type
-    const typeMap = {
-      'Discussion': 'Discussion',
-      'Probation Violation Continuance': 'Probation Violation Continuance',
-      'Arraignment': 'Arraignment',
-      'Status': 'Status Hearing',
-      'Plea Hearing': 'Plea Hearing',
-      'Motion': 'Motion Hearing',
-      'Final Plea Deadline': 'Plea Hearing',
-      'Sentencing': 'Sentencing',
-      'Trial': 'Trial',
-    };
     let mappedType = 'Discussion';
-    for (const [k,v] of Object.entries(typeMap)) {
-      if (hearingType.toLowerCase().includes(k.toLowerCase())) { mappedType = v; break; }
-    }
+    if (/motion/i.test(hearingType)) mappedType = 'Motion Hearing';
+    else if (/plea/i.test(hearingType)) mappedType = 'Plea Hearing';
+    else if (/trial/i.test(hearingType)) mappedType = 'Trial';
+    else if (/sentenc/i.test(hearingType)) mappedType = 'Sentencing';
+    else if (/arraignment/i.test(hearingType)) mappedType = 'Arraignment';
+    else if (/probation violation continuance/i.test(hearingType)) mappedType = 'Probation Violation Continuance';
+    else if (/status/i.test(hearingType)) mappedType = 'Status Hearing';
+    else if (/review/i.test(hearingType)) mappedType = 'Review Hearing';
+    else if (/discussion/i.test(hearingType)) mappedType = 'Discussion';
+
     // Hearing notes
-    const hnMatch = block.match(/Hearing\s*Notes[:\s]+([^\n\r]+)/i);
-    const hearingNotes = hnMatch ? hnMatch[1].trim() : '';
-    // Extract charges
-    const chargeLines = [];
-    const chargeRegex = /\d{2}-\d{2}-\d{3,4}[^A-Z]*([A-Z][A-Z/ &,().'-]+(?:\s[A-Z][A-Z/ &,().'-]+)*)/g;
+    const hnMatch = block.match(/Hearing\s*Notes\s*:\s*([^\n\r]+)/i);
+    const hearingNotes = hnMatch ? hnMatch[1].replace(/\*\*/g,'').trim() : '';
+
+    // Extract charge descriptions (bold caps lines after statute numbers)
+    const chargeSet = new Set();
+    const chargeRegex = /\d{2}-\d{2}-\d{3,5}[\s\S]{0,30}?\n\s*([A-Z][A-Z /,().&'-]{5,})/g;
     let cm;
-    while ((cm = chargeRegex.exec(block)) !== null) chargeLines.push(cm[1].trim());
-    const charges = [...new Set(chargeLines)].join('; ');
+    while ((cm = chargeRegex.exec(block)) !== null) {
+      const ch = cm[1].trim();
+      if (ch.length > 5 && !/^(Count|Bond|Surety|Hearing|Date|Page|Coffee|Judge|ST\.)/.test(ch)) {
+        chargeSet.add(ch);
+      }
+    }
+    const charges = [...chargeSet].join('; ');
 
     found.push({ caseNumber, defendant, charges, hearingType: mappedType, hearingNotes, docketDate, isMotion: mappedType.includes('Motion') });
   });
