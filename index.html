@@ -128,7 +128,6 @@
   .cd-date { font-family: var(--mono); font-size: 12px; color: var(--cyan); margin-bottom: 4px; }
   .cd-type { font-size: 18px; font-weight: 700; font-style: italic; margin-bottom: 10px; }
   .cd-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-
   /* Inputs */
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 10px; color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
@@ -314,7 +313,6 @@
       <div class="tabs">
         <button class="tab active" onclick="setTab('overview')" id="tab-overview">Overview</button>
         <button class="tab" onclick="setTab('court')" id="tab-court">Court Dates</button>
-        <button class="tab" onclick="setTab('plea')" id="tab-plea">Plea Offer</button>
         <button class="tab" onclick="setTab('todos')" id="tab-todos">To-Do</button>
         <button class="tab" onclick="setTab('notes')" id="tab-notes">In-Court Notes</button>
       </div>
@@ -645,79 +643,115 @@ function renderDetail() {
 }
 function setTab(t) {
   currentTab = t;
-  ['overview','court','plea','todos','notes'].forEach(tab => {
+  ['overview','court','todos','notes'].forEach(tab => {
     document.getElementById('tab-'+tab)?.classList.toggle('active', tab === t);
   });
   const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
   const el = document.getElementById('tab-content');
+  const today = todayISO();
 
   if (t === 'overview') {
+    const ps = c.pleaStatus || 'none';
+    const statusColors = { extended:'var(--purple)', accepted:'var(--green)', rejected:'var(--red)', countered:'var(--orange)', withdrawn:'var(--dim)' };
+    const chargeLines = (c.charges||'').split(';').map(s=>s.trim()).filter(Boolean);
+    const upcomingDates = [...(c.courtDates||[])].filter(d=>d.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+    const nextDate = upcomingDates[0];
+
     el.innerHTML = `
       <div class="info-grid">
         <div><div class="info-label">Case Number</div><div class="info-value info-mono">${c.caseNumber||'—'}</div></div>
         <div><div class="info-label">Status</div><div class="info-value"><span class="badge badge-${c.status||'active'}">${c.status||'active'}</span></div></div>
         <div><div class="info-label">Defendant</div><div class="info-value">${c.defendant||'—'}</div></div>
         <div><div class="info-label">Court</div><div class="info-value">${c.court||'—'}</div></div>
-        <div class="info-span2"><div class="info-label">Charges</div><div class="info-value">${c.charges||'—'}</div></div>
+        <div class="info-span2"><div class="info-label">Charges</div><div class="info-value">${chargeLines.length>1 ? chargeLines.map(ch=>`<div style="padding:2px 0;border-bottom:1px solid var(--border)">${ch}</div>`).join('') : (c.charges||'—')}</div></div>
         <div><div class="info-label">Lead Investigator</div><div class="info-value">${c.investigator||'—'}</div></div>
         <div><div class="info-label">Lab / TBI Analyst</div><div class="info-value">${c.analyst||'—'}</div></div>
         <div><div class="info-label">Defense Counsel</div><div class="info-value">${c.defenseCounsel||'—'}</div></div>
         <div><div class="info-label">Judge</div><div class="info-value">${c.judge||'—'}</div></div>
         <div class="info-span2"><div class="info-label">Google Drive Folder</div><div class="info-value">${c.driveLink ? `<a href="${c.driveLink}" target="_blank">Open folder ↗</a>` : '<span style="color:var(--dim)">No link yet — add via Edit</span>'}</div></div>
         ${c.summary ? `<div class="info-span2"><div class="info-label">Summary</div><div class="info-value" style="white-space:pre-wrap">${c.summary}</div></div>` : ''}
+      </div>
+
+      <!-- Add Court Date -->
+      <div style="margin:22px 0 0">
+        <div class="section-head"><div class="section-title">Add Court Date</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:16px">
+          <div class="field" style="margin:0"><label>Date</label><input type="date" id="quick-cd-date" value="${today}"></div>
+          <div class="field" style="margin:0"><label>For</label>
+            <select id="quick-cd-type">
+              <option>Discussion</option>
+              <option>Plea</option>
+              <option>Motion</option>
+              <option>Hearing</option>
+              <option>Trial</option>
+              <option>Arraignment</option>
+              <option>Bond Hearing</option>
+              <option>Status Hearing</option>
+              <option>Suppression Hearing</option>
+              <option>Sentencing</option>
+              <option>Probation Violation Continuance</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0"><label>Notes</label><input type="text" id="quick-cd-notes" placeholder="e.g. 9:00 AM"></div>
+          <button class="btn btn-primary" onclick="quickAddCourtDate()">Add</button>
+        </div>
+        ${nextDate ? `<div style="font-size:12px;color:var(--cyan);margin-top:8px;font-family:var(--mono)">Next: ${nextDate.type} · ${fmtDate(nextDate.date)}${daysUntil(nextDate.date)===0?' · TODAY':daysUntil(nextDate.date)>0?' · '+daysUntil(nextDate.date)+'d':''}</div>` : ''}
+      </div>
+
+      <!-- Quick court note -->
+      <div style="margin:22px 0 0">
+        <div class="section-head"><div class="section-title">Quick Court Note</div></div>
+        <div class="notes-area" style="margin:0">
+          <textarea id="quick-note-area" placeholder="Enter notes from today's hearing..." oninput="updateCaseField('courtNotes',this.value)" style="min-height:120px">${c.courtNotes||''}</textarea>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-top:5px">Notes auto-save and are also visible on the In-Court Notes tab.</div>
+      </div>
+
+      <!-- Plea Offer -->
+      <div style="margin:22px 0 0">
+        <div class="section-head"><div class="section-title">Plea Offer</div></div>
+        <div class="plea-card" style="margin:0">
+          <div class="row2">
+            <div class="field"><label>Offered Charge(s)</label><input type="text" value="${c.pleaOfferedCharge||''}" oninput="updateCaseField('pleaOfferedCharge',this.value)" placeholder="e.g. Reckless Endangerment, Class E"></div>
+            <div class="field"><label>Recommended Sentence</label><input type="text" value="${c.pleaSentence||''}" oninput="updateCaseField('pleaSentence',this.value)" placeholder="e.g. 2 years probation, suspended"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Offer Status</label>
+              <select onchange="updateCaseField('pleaStatus',this.value)">
+                ${[['none','No offer extended'],['extended','Extended — pending'],['accepted','Accepted'],['rejected','Rejected'],['countered','Countered by defense'],['withdrawn','Withdrawn by State']].map(([v,l])=>`<option value="${v}"${ps===v?' selected':''}>${l}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>Offer Expiration</label><input type="date" value="${c.pleaExpiration||''}" onchange="updateCaseField('pleaExpiration',this.value)"></div>
+          </div>
+          <div class="field"><label>Plea Notes</label><textarea rows="3" oninput="updateCaseField('pleaNotes',this.value)" placeholder="Conditions, counter-offers, defense communications...">${c.pleaNotes||''}</textarea></div>
+        </div>
+        ${ps !== 'none' ? `<div class="plea-status-banner" style="color:${statusColors[ps]||'var(--muted)'};background:${statusColors[ps]||'#888'}1a;border:1px solid ${statusColors[ps]||'#888'}44;margin-top:10px">
+          Status: ${ps.charAt(0).toUpperCase()+ps.slice(1)}${c.pleaOfferedCharge?' — '+c.pleaOfferedCharge:''}${c.pleaSentence?' · '+c.pleaSentence:''}
+        </div>` : ''}
       </div>`;
   }
 
   if (t === 'court') {
     const sorted = [...(c.courtDates||[])].sort((a,b)=>a.date.localeCompare(b.date));
-    el.innerHTML = `
-      <div class="section-head">
-        <div class="section-title">Court Appearances</div>
-        <button class="btn btn-secondary btn-sm" onclick="addCourtDate()">＋ Add Date</button>
-      </div>
-      ${!sorted.length ? '<div class="empty"><div class="empty-title">No court dates</div></div>' : sorted.map(d => {
+    const past = sorted.filter(d=>d.date<today);
+    const future = sorted.filter(d=>d.date>=today);
+    const renderDates = (dates, label) => !dates.length ? '' : `
+      <div class="section-title" style="margin:18px 0 10px;color:var(--dim)">${label}</div>
+      ${dates.map(d => {
         const days = daysUntil(d.date);
         const isPast = days !== null && days < 0;
         const dow = d.date ? new Date(d.date+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'}) : '';
         return `<div class="court-date-card">
           <div class="cd-date">${dow.toUpperCase()} · ${fmtDate(d.date)}${!isPast&&days!==null&&days<=14?' <span style="color:'+(days<=3?'var(--red)':'var(--orange)')+'">· '+(days===0?'TODAY':days+'d')+'</span>':isPast?' <span style="color:var(--dim)">· past</span>':''}</div>
-          <div class="cd-row">
-            <div class="field"><label>Date</label><input type="date" value="${d.date||''}" onchange="updateCourtDate('${d.id}','date',this.value)"></div>
-            <div class="field"><label>Type</label>
-              <select onchange="updateCourtDate('${d.id}','type',this.value)">
-                ${['Arraignment','Bond Hearing','Status Hearing','Motion Hearing','Suppression Hearing','Plea Hearing','Sentencing','Trial','Discussion','Probation Violation Continuance','Other'].map(opt=>`<option${d.type===opt?' selected':''}>${opt}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          <div class="field"><label>Notes</label><textarea rows="2" onchange="updateCourtDate('${d.id}','notes',this.value)">${d.notes||''}</textarea></div>
-          <button class="btn btn-danger btn-sm" onclick="deleteCourtDate('${d.id}')">Delete</button>
+          <div class="cd-type">${d.type}</div>
+          ${d.notes?`<div style="font-size:13px;color:var(--muted);margin-top:4px">${d.notes}</div>`:''}
+          <button class="btn btn-danger btn-sm" style="margin-top:10px" onclick="deleteCourtDate('${d.id}')">Remove</button>
         </div>`;
       }).join('')}`;
-  }
-
-  if (t === 'plea') {
-    const ps = c.pleaStatus || 'none';
-    const statusColors = { extended:'var(--purple)', accepted:'var(--green)', rejected:'var(--red)', countered:'var(--orange)', withdrawn:'var(--dim)' };
-    el.innerHTML = `
-      <div class="plea-card">
-        <div class="row2">
-          <div class="field"><label>Offered Charge(s)</label><input type="text" value="${c.pleaOfferedCharge||''}" oninput="updateCaseField('pleaOfferedCharge',this.value)" placeholder="e.g. Reckless Endangerment, Class E Felony"></div>
-          <div class="field"><label>Recommended Sentence</label><input type="text" value="${c.pleaSentence||''}" oninput="updateCaseField('pleaSentence',this.value)" placeholder="e.g. 2 years probation, suspended"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Offer Status</label>
-            <select onchange="updateCaseField('pleaStatus',this.value)">
-              ${[['none','No offer extended'],['extended','Extended — pending'],['accepted','Accepted'],['rejected','Rejected'],['countered','Countered by defense'],['withdrawn','Withdrawn by State']].map(([v,l])=>`<option value="${v}"${ps===v?' selected':''}>${l}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field"><label>Offer Expiration</label><input type="date" value="${c.pleaExpiration||''}" onchange="updateCaseField('pleaExpiration',this.value)"></div>
-        </div>
-        <div class="field"><label>Notes & Conditions</label><textarea rows="4" oninput="updateCaseField('pleaNotes',this.value)" placeholder="Conditions, counter-offers, defense communications, victim input, rationale...">${c.pleaNotes||''}</textarea></div>
-      </div>
-      ${ps !== 'none' ? `<div class="plea-status-banner" style="color:${statusColors[ps]||'var(--muted)'};background:${statusColors[ps]||'#888'}1a;border:1px solid ${statusColors[ps]||'#888'}44">
-        Status: ${ps.charAt(0).toUpperCase()+ps.slice(1)}${c.pleaOfferedCharge?' — '+c.pleaOfferedCharge:''}${c.pleaSentence?' · '+c.pleaSentence:''}
-      </div>` : ''}`;
+    el.innerHTML = !sorted.length
+      ? '<div class="empty"><div class="empty-title">No court dates yet</div><div>Add one from the Overview tab.</div></div>'
+      : renderDates(future, 'Upcoming') + renderDates(past, 'Past');
   }
 
   if (t === 'todos') {
@@ -750,10 +784,18 @@ function updateCaseField(field, value) {
   if (!c) return;
   c[field] = value;
   save();
-  // Re-render plea tab status banner without full re-render
-  if (field === 'pleaStatus' || field === 'pleaOfferedCharge' || field === 'pleaSentence') {
-    setTab('plea');
-  }
+}
+function quickAddCourtDate() {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
+  if (!c) return;
+  const date = document.getElementById('quick-cd-date').value;
+  const type = document.getElementById('quick-cd-type').value;
+  const notes = document.getElementById('quick-cd-notes').value;
+  if (!date) return;
+  c.courtDates = [...(c.courtDates||[]), { id: uid(), date, type, notes }];
+  save();
+  renderDetail();
+  toast(`✓ Added ${type} on ${fmtShort(date)}`);
 }
 function addCourtDate() {
   const c = state.cases.find(x => x.id === state.currentCaseId);
