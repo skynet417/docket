@@ -3,737 +3,1097 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>14th Judicial District — Docket Tracker</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<title>Docket — Case Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
-:root {
-  --bg: #0f1117; --surface: #171b26; --surface2: #1e2333; --border: #2a2f42;
-  --border2: #363d56; --text: #e8eaf0; --text2: #8b92a8; --text3: #555d78;
-  --accent: #4f7ef8; --accent-dim: rgba(79,126,248,0.15);
-  --danger: #e05252; --danger-dim: rgba(224,82,82,0.12);
-  --warn: #e8a234; --warn-dim: rgba(232,162,52,0.12);
-  --success: #3ec97a; --success-dim: rgba(62,201,122,0.12);
-  --info: #7cb8e8; --info-dim: rgba(124,184,232,0.12);
-  --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 14px; }
+  :root {
+    --bg: #000;
+    --bg1: #0a0a0a;
+    --bg2: #111;
+    --bg3: #181818;
+    --border: #252525;
+    --border2: #333;
+    --text: #fff;
+    --muted: #aaa;
+    --dim: #555;
+    --cyan: #4dd9ff;
+    --green: #50fa7b;
+    --orange: #ffb86c;
+    --purple: #bd93f9;
+    --pink: #ff79c6;
+    --yellow: #f1fa8c;
+    --red: #ff5555;
+    --font: 'Times New Roman', Times, Georgia, serif;
+    --mono: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5; min-height: 100vh; }
 
-/* AUTH SCREEN */
-#auth-screen { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1.5rem; }
-.auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem 3rem; text-align: center; max-width: 400px; }
-.auth-title { font-size: 20px; font-weight: 600; margin-bottom: 0.5rem; }
-.auth-sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; line-height: 1.6; }
-.signin-btn { background: #fff; color: #333; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 0 auto; transition: opacity 0.15s; }
-.signin-btn:hover { opacity: 0.9; }
-.signin-btn svg { width: 18px; height: 18px; }
+  /* Layout */
+  #app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+  #sidebar { background: var(--bg1); border-right: 2px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  #main { padding: 32px 40px; overflow-y: auto; }
 
-/* TOP BAR */
-#app { display: none; flex-direction: column; height: 100vh; }
-.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1.25rem; height: 52px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-.app-name { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-.app-court { font-size: 11px; color: var(--text3); font-family: var(--mono); }
-.topbar-right { display: flex; align-items: center; gap: 0.75rem; }
-.user-pill { font-size: 11px; color: var(--text3); font-family: var(--mono); }
-.btn { background: var(--surface2); border: 1px solid var(--border2); color: var(--text2); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: var(--sans); }
-.btn:hover { border-color: var(--border2); color: var(--text); }
-.btn-primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-.btn-primary:hover { background: var(--accent); color: #fff; }
-.btn-sm { padding: 3px 8px; font-size: 11px; }
-.btn-danger { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+  /* Sidebar */
+  .brand { padding: 20px 24px 18px; border-bottom: 1px solid var(--border); }
+  .brand-title { font-size: 28px; font-weight: 700; font-style: italic; color: var(--cyan); letter-spacing: 0.01em; }
+  .brand-sub { font-size: 10px; color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 3px; }
 
-/* LAYOUT */
-.layout { display: flex; flex: 1; overflow: hidden; }
+  nav { padding: 12px; }
+  .nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; background: none; border: none; border-radius: 4px; color: var(--muted); font-family: var(--font); font-size: 14px; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .nav-btn:hover { background: var(--bg2); color: var(--text); }
+  .nav-btn.active { background: var(--bg2); color: var(--cyan); box-shadow: inset 3px 0 0 var(--cyan); }
+  .nav-icon { font-size: 16px; width: 18px; text-align: center; }
 
-/* LEFT PANEL */
-.left-panel { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
-.stats { display: grid; grid-template-columns: repeat(4,1fr); border-bottom: 1px solid var(--border); }
-.stat { padding: 0.5rem 0.5rem; text-align: center; border-right: 1px solid var(--border); }
-.stat:last-child { border-right: none; }
-.stat-n { font-size: 18px; font-weight: 600; font-family: var(--mono); }
-.stat-l { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-.toolbar { padding: 0.5rem 0.6rem; display: flex; gap: 5px; align-items: center; border-bottom: 1px solid var(--border); }
-.search-wrap { flex: 1; position: relative; }
-.search-wrap input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 8px 5px 26px; font-size: 12px; font-family: var(--sans); outline: none; }
-.search-wrap input:focus { border-color: var(--accent); }
-.search-wrap input::placeholder { color: var(--text3); }
-.search-icon { position: absolute; left: 7px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 12px; }
-.filter-btns { display: flex; gap: 3px; }
-.filt { background: none; border: 1px solid var(--border); color: var(--text3); border-radius: 4px; padding: 3px 7px; font-size: 11px; cursor: pointer; transition: all 0.12s; white-space: nowrap; font-family: var(--sans); }
-.filt:hover { color: var(--text2); }
-.filt.on { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-.case-list { flex: 1; overflow-y: auto; }
-.case-list::-webkit-scrollbar { width: 3px; }
-.case-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-.case-row { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
-.case-row:hover { background: var(--surface2); }
-.case-row.active { background: var(--accent-dim); border-left: 2px solid var(--accent); padding-left: calc(0.75rem - 2px); }
-.cr-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
-.case-num { font-family: var(--mono); font-size: 10px; color: var(--text3); }
-.case-date-badge { font-size: 10px; color: var(--text2); font-family: var(--mono); white-space: nowrap; }
-.defendant { font-size: 13px; font-weight: 500; color: var(--text); margin: 2px 0 1px; line-height: 1.3; }
-.charges-preview { font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 330px; }
-.row-badges { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
-.badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; font-family: var(--mono); }
-.b-motion { background: var(--danger-dim); color: var(--danger); border: 1px solid rgba(224,82,82,0.25); }
-.b-plea { background: var(--info-dim); color: var(--info); border: 1px solid rgba(124,184,232,0.25); }
-.b-todo { background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(232,162,52,0.25); }
-.b-pv { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
-.b-trial { background: var(--success-dim); color: var(--success); border: 1px solid rgba(62,201,122,0.25); }
-.empty-list { padding: 2rem; text-align: center; color: var(--text3); font-size: 13px; }
+  .sidebar-section { padding: 16px 20px; border-top: 1px solid var(--border); flex: 1; overflow-y: auto; }
+  .sidebar-label { font-size: 10px; color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 700; margin-bottom: 10px; }
+  .upcoming-group { padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .upcoming-group:last-child { border-bottom: none; }
+  .upcoming-group:hover .upcoming-name { color: var(--cyan); }
+  .upcoming-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; transition: color 0.15s; }
+  .upcoming-row { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+  .upcoming-type { font-size: 11px; color: var(--muted); }
+  .upcoming-date { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .upcoming-casenum { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-bottom: 3px; }
 
-/* RIGHT PANEL */
-.detail-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.detail-empty { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; color: var(--text3); }
-.detail-empty svg { opacity: 0.15; }
-.detail-scroll { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; }
-.detail-scroll::-webkit-scrollbar { width: 3px; }
-.detail-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .sidebar-upload { padding: 14px 20px; border-top: 1px solid var(--border); }
+  .upload-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; background: rgba(77,217,255,0.08); border: 1px solid rgba(77,217,255,0.25); border-radius: 4px; color: var(--cyan); font-family: var(--font); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .upload-btn:hover { background: rgba(77,217,255,0.15); border-color: var(--cyan); }
 
-.dh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; gap: 1rem; }
-.dh-left { flex: 1; }
-.d-casenum { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 3px; }
-.d-defendant { font-size: 22px; font-weight: 600; line-height: 1.2; }
-.d-charges { font-size: 13px; color: var(--text2); margin-top: 5px; line-height: 1.5; }
-.dh-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+  /* Buttons */
+  .btn { padding: 9px 18px; border-radius: 3px; font-family: var(--font); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: all 0.15s; border: none; }
+  .btn-primary { background: var(--cyan); color: #000; font-weight: 700; }
+  .btn-primary:hover { background: #77e8ff; }
+  .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border2); }
+  .btn-secondary:hover { background: var(--bg2); border-color: var(--cyan); color: var(--cyan); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--border); }
+  .btn-danger:hover { background: rgba(255,85,85,0.1); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
 
-.sec { margin-bottom: 1.25rem; }
-.sec-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); font-weight: 500; margin-bottom: 0.5rem; padding-bottom: 4px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.meta-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.65rem; }
-.meta-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-.meta-val { font-size: 13px; color: var(--text); }
-.meta-val.empty { color: var(--text3); font-style: italic; }
-.meta-input { background: transparent; border: none; color: var(--text); font-size: 13px; font-family: var(--sans); outline: none; width: 100%; }
-.meta-input::placeholder { color: var(--text3); font-style: italic; }
+  /* Page header */
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 2px solid var(--border); }
+  .page-title { font-size: 38px; font-weight: 700; font-style: italic; color: var(--text); }
+  .page-sub { font-size: 12px; color: var(--dim); letter-spacing: 0.08em; margin-top: 5px; }
 
-.cd-row { display: flex; justify-content: space-between; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 5px; gap: 8px; }
-.cd-row.upcoming { border-left: 2px solid var(--accent); }
-.cd-date { font-family: var(--mono); font-size: 13px; font-weight: 500; }
-.cd-type { font-size: 12px; color: var(--text2); margin-top: 1px; }
-.cd-notes { font-size: 11px; color: var(--text3); margin-top: 1px; }
-.cd-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 0 2px; line-height: 1; }
-.cd-del:hover { color: var(--danger); }
+  /* Search */
+  .search-wrap { position: relative; margin-bottom: 22px; }
+  .search-wrap .ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--dim); font-size: 15px; }
+  .search-input { width: 100%; background: var(--bg1); border: 1px solid var(--border2); color: var(--text); padding: 12px 16px 12px 40px; font-family: var(--font); font-size: 15px; border-radius: 4px; outline: none; transition: border 0.15s; }
+  .search-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(77,217,255,0.1); }
 
-.add-cd { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; margin-top: 8px; }
-.add-cd input, .add-cd select { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 7px; font-size: 12px; font-family: var(--sans); outline: none; }
-.add-cd input:focus, .add-cd select:focus { border-color: var(--accent); }
-.add-cd select option { background: var(--surface2); }
+  /* Case grid */
+  .case-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+  .case-card { background: var(--bg1); border: 1px solid var(--border); border-radius: 4px; padding: 18px 20px; cursor: pointer; transition: all 0.2s; }
+  .case-card:hover { border-color: var(--cyan); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(77,217,255,0.1); }
+  .case-num { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-bottom: 6px; }
+  .case-defendant { font-size: 20px; font-weight: 700; font-style: italic; color: var(--text); margin-bottom: 5px; line-height: 1.2; }
+  .case-charges { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .case-meta { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); font-size: 11px; }
+  .case-next { font-family: var(--mono); color: var(--muted); }
+  .case-next-urgent { color: var(--orange); font-weight: 600; }
 
-.todo-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
-.todo-cb { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border2); background: var(--surface2); cursor: pointer; flex-shrink: 0; appearance: none; -webkit-appearance: none; }
-.todo-cb:checked { background: var(--success-dim); border-color: var(--success); }
-.todo-text { font-size: 13px; color: var(--text2); flex: 1; background: transparent; border: none; outline: none; font-family: var(--sans); }
-.todo-text.done-text { text-decoration: line-through; color: var(--text3); }
-.todo-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 15px; }
-.todo-del:hover { color: var(--danger); }
-.add-todo { display: flex; gap: 6px; margin-top: 7px; }
-.add-todo input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: var(--sans); outline: none; }
-.add-todo input:focus { border-color: var(--accent); }
+  /* Status badges */
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .badge-active { background: rgba(80,250,123,0.12); color: var(--green); border: 1px solid rgba(80,250,123,0.3); }
+  .badge-pending { background: rgba(255,184,108,0.12); color: var(--orange); border: 1px solid rgba(255,184,108,0.3); }
+  .badge-trial { background: rgba(189,147,249,0.12); color: var(--purple); border: 1px solid rgba(189,147,249,0.3); }
+  .badge-closed { background: rgba(100,100,100,0.12); color: #888; border: 1px solid rgba(100,100,100,0.3); }
 
-textarea.notes { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.6rem 0.75rem; font-size: 13px; font-family: var(--sans); resize: vertical; min-height: 80px; outline: none; line-height: 1.5; }
-textarea.notes:focus { border-color: var(--accent); }
+  /* Detail view */
+  .back-btn { background: none; border: none; color: var(--muted); font-family: var(--font); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; padding: 0; }
+  .back-btn:hover { color: var(--cyan); }
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 22px; }
+  .detail-title { font-size: 36px; font-weight: 700; font-style: italic; line-height: 1.1; }
+  .detail-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .detail-casenum { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-bottom: 6px; }
 
-.plea-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.plea-field { }
-.plea-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
-.plea-input { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: var(--sans); outline: none; width: 100%; }
-.plea-input:focus { border-color: var(--accent); }
-select.plea-input option { background: var(--surface2); }
+  /* Tabs */
+  .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 22px; }
+  .tab { padding: 11px 20px; background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; color: var(--dim); font-family: var(--font); font-size: 13px; font-weight: 700; letter-spacing: 0.05em; cursor: pointer; text-transform: uppercase; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
 
-.drive-row { display: flex; gap: 6px; align-items: center; }
-.drive-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: var(--mono); outline: none; }
-.drive-row input:focus { border-color: var(--accent); }
-.drive-link { color: var(--accent); font-size: 12px; text-decoration: none; }
-.drive-link:hover { text-decoration: underline; }
+  /* Info grid */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; background: var(--bg1); border: 1px solid var(--border); border-radius: 4px; padding: 22px; margin-bottom: 20px; }
+  .info-span2 { grid-column: span 2; }
+  .info-label { font-size: 10px; color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+  .info-value { font-size: 15px; color: var(--text); }
+  .info-value a { color: var(--cyan); text-decoration: none; }
+  .info-value a:hover { text-decoration: underline; }
+  .info-mono { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 
-.save-bar { padding: 0.6rem 1.5rem; background: var(--surface); border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-.save-status { font-size: 11px; color: var(--text3); font-family: var(--mono); }
-.save-status.saved { color: var(--success); }
-.save-status.saving { color: var(--warn); }
+  /* Court dates */
+  .court-date-card { background: var(--bg1); border: 1px solid var(--border); border-left: 3px solid var(--cyan); border-radius: 4px; padding: 16px 18px; margin-bottom: 10px; }
+  .cd-date { font-family: var(--mono); font-size: 12px; color: var(--cyan); margin-bottom: 4px; }
+  .cd-type { font-size: 18px; font-weight: 700; font-style: italic; margin-bottom: 10px; }
+  .cd-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 
-/* MODAL */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; padding: 1.5rem; width: 480px; max-width: 95vw; }
-.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 1rem; }
-.form-row { margin-bottom: 0.75rem; }
-.form-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-.form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: 6px; padding: 7px 10px; font-size: 13px; font-family: var(--sans); outline: none; }
-.form-input:focus { border-color: var(--accent); }
-textarea.form-input { resize: vertical; min-height: 70px; line-height: 1.5; }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; }
+  /* Inputs */
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 10px; color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
+  input[type=text], input[type=date], textarea, select {
+    width: 100%; background: var(--bg); border: 1px solid var(--border2); color: var(--text);
+    padding: 9px 11px; font-family: var(--font); font-size: 14px; border-radius: 3px; outline: none; transition: border 0.15s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(77,217,255,0.1); }
+  textarea { resize: vertical; min-height: 80px; }
+  select option { background: #111; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-/* SYNC STATUS */
-.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 5px; }
-.sync-dot.offline { background: var(--text3); }
-.sync-dot.syncing { background: var(--warn); animation: pulse 1s infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  /* To-do */
+  .todo-item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .todo-check { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--dim); padding: 0; flex-shrink: 0; line-height: 1; margin-top: 1px; transition: color 0.15s; }
+  .todo-check:hover { color: var(--green); }
+  .todo-check.done { color: var(--green); }
+  .todo-text { flex: 1; font-size: 15px; }
+  .todo-text.done { color: var(--dim); text-decoration: line-through; }
+  .todo-del { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 16px; padding: 0; transition: color 0.15s; }
+  .todo-del:hover { color: var(--red); }
+  .todo-add { display: flex; gap: 10px; margin-top: 14px; }
+  .todo-add input { flex: 1; }
+
+  /* Notes */
+  .notes-area { background: var(--bg1); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
+  .notes-area textarea { min-height: 260px; font-size: 15px; line-height: 1.65; background: var(--bg); }
+
+  /* Plea offer */
+  .plea-card { background: var(--bg1); border: 1px solid var(--border); border-left: 3px solid var(--purple); border-radius: 4px; padding: 22px; margin-bottom: 14px; }
+  .plea-status-banner { padding: 12px 16px; border-radius: 4px; font-weight: 700; font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 14px; }
+
+  /* Calendar */
+  .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .cal-month { font-size: 30px; font-weight: 700; font-style: italic; }
+  .cal-nav-btns { display: flex; gap: 6px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .cal-dow { background: var(--bg1); padding: 9px; font-size: 10px; color: var(--dim); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; text-align: center; }
+  .cal-day { background: var(--bg); min-height: 100px; padding: 7px; cursor: pointer; transition: background 0.15s; }
+  .cal-day:hover { background: var(--bg1); }
+  .cal-day.other { background: var(--bg1); opacity: 0.4; pointer-events: none; }
+  .cal-day.today { background: rgba(77,217,255,0.05); outline: 1px solid rgba(77,217,255,0.25); }
+  .cal-day.today .cal-daynum { color: var(--cyan); font-weight: 700; }
+  .cal-daynum { font-family: var(--mono); font-size: 12px; color: var(--dim); margin-bottom: 3px; }
+  .cal-event { background: var(--bg2); border-left: 3px solid var(--cyan); padding: 2px 5px; margin-bottom: 2px; font-size: 10px; color: var(--text); border-radius: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .cal-event:hover { border-left-color: var(--purple); color: var(--cyan); }
+
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: var(--bg1); border: 1px solid var(--border2); border-radius: 4px; width: 100%; max-width: 660px; max-height: 90vh; overflow-y: auto; }
+  .modal-head { padding: 22px 26px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 24px; font-weight: 700; font-style: italic; }
+  .modal-body { padding: 22px 26px; }
+  .modal-foot { padding: 18px 26px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+  .close-btn { background: none; border: none; color: var(--dim); font-size: 22px; cursor: pointer; line-height: 1; padding: 0; }
+  .close-btn:hover { color: var(--text); }
+
+  /* Upload modal */
+  .drop-zone { border: 2px dashed var(--border2); border-radius: 6px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--cyan); background: rgba(77,217,255,0.04); }
+  .drop-zone-icon { font-size: 40px; margin-bottom: 10px; }
+  .drop-zone-text { color: var(--muted); font-size: 15px; }
+  .drop-zone-sub { font-size: 12px; color: var(--dim); margin-top: 6px; }
+  .import-results { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; max-height: 280px; overflow-y: auto; }
+  .import-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .import-row:last-child { border-bottom: none; }
+  .import-status { font-size: 16px; }
+  .import-info { flex: 1; }
+  .import-name { font-weight: 700; }
+  .import-case { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .import-type { font-size: 11px; color: var(--muted); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 70px 20px; color: var(--dim); }
+  .empty-title { font-size: 26px; font-weight: 700; font-style: italic; color: var(--muted); margin-bottom: 8px; }
+
+  /* Section header */
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .section-title { font-size: 12px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2); border: 1px solid var(--border2); border-left: 3px solid var(--green); color: var(--text); padding: 12px 18px; border-radius: 4px; font-size: 14px; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+
+  .hidden { display: none !important; }
+  hr-dim { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* Auth screen */
+  #auth-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .auth-card { background: var(--bg1); border: 1px solid var(--border2); border-radius: 4px; padding: 48px 56px; text-align: center; max-width: 420px; }
+  .auth-logo { font-size: 52px; font-weight: 700; font-style: italic; color: var(--cyan); margin-bottom: 4px; }
+  .auth-sub { font-size: 11px; color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 32px; }
+  .auth-desc { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+  .google-btn { background: #fff; color: #333; border: none; border-radius: 3px; padding: 11px 24px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; transition: opacity 0.15s; }
+  .google-btn:hover { opacity: 0.9; }
+  .google-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+  /* Sync status */
+  .sync-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dim); font-family: var(--mono); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .sync-dot.saving { background: var(--orange); animation: blink 0.8s infinite; }
+  .sync-dot.offline { background: var(--dim); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 </style>
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
+<!-- Auth screen -->
 <div id="auth-screen">
   <div class="auth-card">
-    <div style="font-size:32px;margin-bottom:0.5rem">⚖️</div>
-    <div class="auth-title">14th Judicial District</div>
-    <div class="auth-title" style="font-size:15px;font-weight:400;margin-top:2px">Docket Tracker</div>
-    <div class="auth-sub">Sign in with your Google account to access your case files stored in Google Drive.</div>
-    <button class="signin-btn" onclick="signIn()">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+    <div class="auth-logo">Docket</div>
+    <div class="auth-sub">Case Tracker · 14th Judicial District</div>
+    <div class="auth-desc">Sign in with your Google account to access your case files stored in Google Drive.</div>
+    <button class="google-btn" onclick="signIn()">
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
       Sign in with Google
     </button>
   </div>
 </div>
 
-<!-- MAIN APP -->
 <div id="app">
-  <div class="topbar">
-    <div>
-      <div class="app-name">⚖ Docket Tracker</div>
-      <div class="app-court">14th Judicial District · Coffee County Circuit Court · Hon. Robert T. Carter</div>
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-title">Docket</div>
+      <div class="brand-sub">Case Tracker · 14th JD</div>
+      <div class="sync-indicator" style="margin-top:8px">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-label">saved</span>
+        <span style="flex:1"></span>
+        <button style="background:none;border:none;color:var(--dim);font-size:11px;cursor:pointer;font-family:var(--font)" onclick="signOut()">sign out</button>
+      </div>
     </div>
-    <div class="topbar-right">
-      <span class="sync-dot" id="sync-dot"></span>
-      <span class="save-status" id="sync-label">connected</span>
-      <span class="user-pill" id="user-email"></span>
-      <button class="btn btn-sm" onclick="signOut()">Sign out</button>
-      <button class="btn btn-primary" onclick="openNewCase()">+ New Case</button>
+    <nav>
+      <button class="nav-btn active" onclick="showView('cases')" id="nav-cases">
+        <span class="nav-icon">⚖</span> Cases
+      </button>
+      <button class="nav-btn" onclick="showView('calendar')" id="nav-calendar">
+        <span class="nav-icon">📅</span> Calendar
+      </button>
+    </nav>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Upcoming</div>
+      <div id="upcoming-list"></div>
     </div>
-  </div>
+    <div class="sidebar-upload">
+      <button class="upload-btn" onclick="openUpload()">
+        <span>⬆</span> Upload Docket PDF
+      </button>
+    </div>
+  </aside>
 
-  <div class="layout">
-    <!-- LEFT -->
-    <div class="left-panel">
-      <div class="stats">
-        <div class="stat"><div class="stat-n" id="s-total" style="color:var(--text)">—</div><div class="stat-l">Active</div></div>
-        <div class="stat"><div class="stat-n" id="s-motions" style="color:var(--danger)">—</div><div class="stat-l">Motions</div></div>
-        <div class="stat"><div class="stat-n" id="s-pleas" style="color:var(--info)">—</div><div class="stat-l">Pleas</div></div>
-        <div class="stat"><div class="stat-n" id="s-todos" style="color:var(--warn)">—</div><div class="stat-l">To-dos</div></div>
-      </div>
-      <div class="toolbar">
-        <div class="search-wrap">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" placeholder="Search defendant, case no., charges…" oninput="renderList()">
+  <!-- Main content -->
+  <main id="main">
+    <div id="view-cases">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Active Caseload</div>
+          <div class="page-sub" id="case-count-label">0 cases</div>
         </div>
-        <div class="filter-btns">
-          <button class="filt on" data-f="all" onclick="setFilter(this)">All</button>
-          <button class="filt" data-f="motion" onclick="setFilter(this)">Motions</button>
-          <button class="filt" data-f="plea" onclick="setFilter(this)">Pleas</button>
-          <button class="filt" data-f="pv" onclick="setFilter(this)">PV</button>
-          <button class="filt" data-f="trial" onclick="setFilter(this)">Trial</button>
-        </div>
+        <button class="btn btn-primary" onclick="openNewCase()">＋ New Case</button>
       </div>
-      <div class="case-list" id="case-list"></div>
+      <div class="search-wrap">
+        <span class="ico">🔍</span>
+        <input class="search-input" type="text" id="search" placeholder="Search by defendant, case number, charges, investigator..." oninput="renderCases()">
+      </div>
+      <div class="case-grid" id="case-grid"></div>
     </div>
 
-    <!-- RIGHT -->
-    <div class="detail-panel">
-      <div class="detail-empty" id="detail-empty">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        <div style="font-size:13px">Select a case to view details</div>
-      </div>
-      <div id="detail-content" style="display:none;flex:1;display:none;flex-direction:column;overflow:hidden;">
-        <div class="detail-scroll" id="detail-scroll"></div>
-        <div class="save-bar">
-          <span class="save-status" id="detail-save-status">All changes saved</span>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-sm btn-danger" onclick="deleteCase()">Delete case</button>
-            <button class="btn btn-sm btn-primary" onclick="saveCurrentCase()">Save to Drive</button>
-          </div>
+    <div id="view-detail" class="hidden">
+      <button class="back-btn" onclick="showView('cases')">← All Cases</button>
+      <div class="detail-header">
+        <div>
+          <div class="detail-casenum" id="det-casenum"></div>
+          <div class="detail-title" id="det-name"></div>
+          <div class="detail-sub" id="det-charges"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="openEditCase()">✎ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCurrentCase()">🗑</button>
         </div>
       </div>
+      <div class="tabs">
+        <button class="tab active" onclick="setTab('overview')" id="tab-overview">Overview</button>
+        <button class="tab" onclick="setTab('court')" id="tab-court">Court Dates</button>
+        <button class="tab" onclick="setTab('plea')" id="tab-plea">Plea Offer</button>
+        <button class="tab" onclick="setTab('todos')" id="tab-todos">To-Do</button>
+        <button class="tab" onclick="setTab('notes')" id="tab-notes">In-Court Notes</button>
+      </div>
+      <div id="tab-content"></div>
     </div>
-  </div>
+
+    <div id="view-calendar" class="hidden">
+      <div class="page-header">
+        <div><div class="page-title">Court Calendar</div></div>
+      </div>
+      <div class="cal-nav">
+        <div class="cal-month" id="cal-month-label"></div>
+        <div class="cal-nav-btns">
+          <button class="btn btn-secondary btn-sm" onclick="calToday()">Today</button>
+          <button class="btn btn-secondary btn-sm" onclick="calPrev()">‹</button>
+          <button class="btn btn-secondary btn-sm" onclick="calNext()">›</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </main>
 </div>
 
-<!-- NEW CASE MODAL -->
-<div class="modal-overlay" id="new-case-modal" style="display:none">
+<!-- Case modal -->
+<div id="case-modal" class="modal-backdrop hidden">
   <div class="modal">
-    <div class="modal-title">New Case</div>
-    <div class="form-row"><div class="form-label">Case Number *</div><input class="form-input" id="nc-num" placeholder="16CC1-2026-CR-XXXXX"></div>
-    <div class="form-row"><div class="form-label">Defendant *</div><input class="form-input" id="nc-def" placeholder="Full legal name"></div>
-    <div class="form-row"><div class="form-label">Charges</div><textarea class="form-input" id="nc-charges" placeholder="Charge descriptions…"></textarea></div>
-    <div class="form-row"><div class="form-label">Defense Counsel</div><input class="form-input" id="nc-defense" placeholder="Attorney name"></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="createCase()">Create Case</button>
+    <div class="modal-head">
+      <div class="modal-title" id="case-modal-title">New Case</div>
+      <button class="close-btn" onclick="closeModal('case-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="row2">
+        <div class="field"><label>Case Number</label><input type="text" id="f-caseNumber" placeholder="16CC1-2025-CR-50000"></div>
+        <div class="field">
+          <label>Status</label>
+          <select id="f-status">
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="trial">Trial Prep</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Defendant</label><input type="text" id="f-defendant" placeholder="State v. ..."></div>
+      <div class="field"><label>Charges</label><textarea id="f-charges" rows="3"></textarea></div>
+      <div class="row2">
+        <div class="field"><label>Court</label><input type="text" id="f-court" value="Coffee County Circuit Court"></div>
+        <div class="field"><label>Judge</label><input type="text" id="f-judge"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Lead Investigator</label><input type="text" id="f-investigator"></div>
+        <div class="field"><label>Lab / TBI Analyst</label><input type="text" id="f-analyst"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Defense Counsel</label><input type="text" id="f-defenseCounsel"></div>
+        <div class="field"><label>Google Drive Folder Link</label><input type="text" id="f-driveLink" placeholder="https://drive.google.com/..."></div>
+      </div>
+      <div class="field"><label>Summary / Notes</label><textarea id="f-summary" rows="3"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('case-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCase()">Save Case</button>
     </div>
   </div>
 </div>
+
+<!-- Upload modal -->
+<div id="upload-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Upload Docket PDF</div>
+      <button class="close-btn" onclick="closeModal('upload-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+        <div class="drop-zone-icon">📄</div>
+        <div class="drop-zone-text">Click to select or drag & drop a docket PDF</div>
+        <div class="drop-zone-sub">Scans your name (Jason Ponder) and extracts cases automatically</div>
+      </div>
+      <input type="file" id="pdf-input" accept=".pdf" class="hidden" onchange="handlePdfFile(this.files[0])">
+      <div id="parse-status" style="color:var(--muted);font-size:13px;margin-bottom:10px;"></div>
+      <div id="import-results-wrap" class="hidden">
+        <div class="section-head">
+          <div class="section-title" id="import-count-label"></div>
+        </div>
+        <div class="import-results" id="import-results"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('upload-modal')">Cancel</button>
+      <button class="btn btn-primary hidden" id="import-confirm-btn" onclick="confirmImport()">Import Cases</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────────────────────
+// ─── PDF.js setup ───────────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─── Drive config ────────────────────────────────────────────────────
 const CLIENT_ID = '471907928730-3m91e2shhemistosq945v3hbaaolggt3.apps.googleusercontent.com';
 const DRIVE_FOLDER_ID = '1O4fKYZPq06RkmgEnY5WsqCKBiloHSeFW';
 const SCOPES = 'https://www.googleapis.com/auth/drive';
 const CASES_FILENAME = 'cases.json';
 
-// ── STATE ────────────────────────────────────────────────────────────────────
-let tokenClient, accessToken = null;
-let cases = [];
-let selectedId = null;
-let activeFilter = 'all';
-let casesFileId = null;
-let saveTimer = null;
+let tokenClient, accessToken = null, casesFileId = null, saveTimer = null;
 
-// ── AUTH ─────────────────────────────────────────────────────────────────────
-function loadGIS() {
+// ─── State ──────────────────────────────────────────────────────────
+let state = { cases: [], currentView: 'cases', currentCaseId: null, calYear: new Date().getFullYear(), calMonth: new Date().getMonth() };
+let editingCaseId = null;
+let pendingImports = [];
+
+// ─── Auth ────────────────────────────────────────────────────────────
+function initGIS() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
-    callback: (resp) => {
+    callback: async (resp) => {
       if (resp.error) return;
       accessToken = resp.access_token;
+      // Persist token in sessionStorage so refresh doesn't need re-auth
+      sessionStorage.setItem('docket_token', accessToken);
       document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('app').style.display = 'flex';
-      loadUserInfo();
-      loadCases();
+      await loadCasesFromDrive();
+      showView('cases');
     }
   });
+
+  // Try to restore session token
+  const stored = sessionStorage.getItem('docket_token');
+  if (stored) {
+    accessToken = stored;
+    document.getElementById('auth-screen').style.display = 'none';
+    loadCasesFromDrive().then(() => showView('cases'));
+  }
 }
 
-function signIn() { tokenClient.requestAccessToken(); }
+function signIn() { tokenClient.requestAccessToken({ prompt: '' }); }
 function signOut() {
-  google.accounts.oauth2.revoke(accessToken, () => {
-    accessToken = null;
-    document.getElementById('auth-screen').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
-  });
+  sessionStorage.removeItem('docket_token');
+  accessToken = null;
+  document.getElementById('auth-screen').style.display = 'flex';
 }
 
-function loadUserInfo() {
-  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  }).then(r => r.json()).then(d => {
-    document.getElementById('user-email').textContent = d.email || '';
-  });
-}
-
-// ── DRIVE ────────────────────────────────────────────────────────────────────
-function setSyncStatus(status) {
+// ─── Drive I/O ───────────────────────────────────────────────────────
+function setSyncStatus(s) {
   const dot = document.getElementById('sync-dot');
-  const label = document.getElementById('sync-label');
-  dot.className = 'sync-dot' + (status === 'syncing' ? ' syncing' : status === 'offline' ? ' offline' : '');
-  label.textContent = status === 'syncing' ? 'saving…' : status === 'offline' ? 'offline' : 'saved';
-  label.className = 'save-status' + (status === 'saved' ? ' saved' : '');
+  const lbl = document.getElementById('sync-label');
+  if (!dot) return;
+  dot.className = 'sync-dot' + (s === 'saving' ? ' saving' : s === 'offline' ? ' offline' : '');
+  lbl.textContent = s === 'saving' ? 'saving…' : s === 'offline' ? 'offline' : 'saved';
 }
 
-async function driveRequest(url, opts = {}) {
-  const resp = await fetch(url, {
-    ...opts,
-    headers: { Authorization: `Bearer ${accessToken}`, ...(opts.headers || {}) }
-  });
-  if (!resp.ok) throw new Error(`Drive error ${resp.status}`);
-  return resp.json();
-}
-
-async function loadCases() {
-  setSyncStatus('syncing');
+async function loadCasesFromDrive() {
+  setSyncStatus('saving');
   try {
-    // Find cases.json in folder (newest by modified time)
-    const q = encodeURIComponent(`name='${CASES_FILENAME}' and '${DRIVE_FOLDER_ID}' in parents and trashed=false`);
-    const list = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime+desc&fields=files(id,name,modifiedTime)`);
-    if (list.files && list.files.length > 0) {
-      casesFileId = list.files[0].id;
+    const q = encodeURIComponent(`title='${CASES_FILENAME}' and '${DRIVE_FOLDER_ID}' in parents and trashed=false`);
+    const list = await fetch(`https://www.googleapis.com/drive/v2/files?q=${q}&orderBy=modifiedDate+desc`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    }).then(r => r.json());
+
+    if (list.items && list.items.length > 0) {
+      casesFileId = list.items[0].id;
       const content = await fetch(`https://www.googleapis.com/drive/v3/files/${casesFileId}?alt=media`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       }).then(r => r.json());
-      cases = content.cases || [];
+      state.cases = content.cases || [];
     } else {
-      cases = [];
+      state.cases = [];
     }
     setSyncStatus('saved');
-  } catch (e) {
+  } catch(e) {
     setSyncStatus('offline');
-    console.error(e);
+    console.error('Drive load error:', e);
+    // Fall back to seed data if drive fails
+    if (!state.cases.length) state.cases = SEED_CASES;
   }
-  renderList();
-  updateStats();
 }
 
-async function saveCases() {
-  setSyncStatus('syncing');
-  setDetailSaveStatus('saving…');
+async function saveCasesToDrive() {
+  if (!accessToken) return;
+  setSyncStatus('saving');
   try {
-    const payload = JSON.stringify({ version: 1, lastUpdated: new Date().toISOString().slice(0,10), cases });
-    const metadata = { name: CASES_FILENAME, mimeType: 'application/json', parents: casesFileId ? undefined : [DRIVE_FOLDER_ID] };
+    const payload = JSON.stringify({ version: 1, lastUpdated: new Date().toISOString().slice(0,10), cases: state.cases });
+    const metadata = { title: CASES_FILENAME, mimeType: 'application/json' };
     const form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     form.append('file', new Blob([payload], { type: 'application/json' }));
 
-    let url, method;
-    if (casesFileId) {
-      url = `https://www.googleapis.com/upload/drive/v3/files/${casesFileId}?uploadType=multipart`;
-      method = 'PATCH';
-    } else {
-      url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-      method = 'POST';
-    }
+    let url = casesFileId
+      ? `https://www.googleapis.com/upload/drive/v2/files/${casesFileId}?uploadType=multipart`
+      : `https://www.googleapis.com/upload/drive/v2/files?uploadType=multipart`;
+    const method = casesFileId ? 'PUT' : 'POST';
+
     const resp = await fetch(url, { method, headers: { Authorization: `Bearer ${accessToken}` }, body: form });
     const data = await resp.json();
     if (!casesFileId) casesFileId = data.id;
     setSyncStatus('saved');
-    setDetailSaveStatus('Saved to Drive ✓');
   } catch(e) {
     setSyncStatus('offline');
-    setDetailSaveStatus('Save failed — check connection');
-    console.error(e);
+    console.error('Drive save error:', e);
   }
 }
 
-function scheduleSave() {
+function save() {
   clearTimeout(saveTimer);
-  setDetailSaveStatus('Unsaved changes…');
-  saveTimer = setTimeout(saveCases, 2000);
+  setSyncStatus('saving');
+  saveTimer = setTimeout(saveCasesToDrive, 1500);
 }
 
-function setDetailSaveStatus(msg) {
-  const el = document.getElementById('detail-save-status');
-  if (el) el.textContent = msg;
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtShort(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+}
+function daysUntil(iso) {
+  if (!iso) return null;
+  const d = new Date(iso + 'T00:00:00'), now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.round((d - now) / 86400000);
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// ─── Views ──────────────────────────────────────────────────────────
+function showView(v) {
+  document.getElementById('view-cases').classList.toggle('hidden', v !== 'cases');
+  document.getElementById('view-detail').classList.toggle('hidden', v !== 'detail');
+  document.getElementById('view-calendar').classList.toggle('hidden', v !== 'calendar');
+  ['cases','calendar'].forEach(n => document.getElementById('nav-'+n)?.classList.toggle('active', n === v));
+  state.currentView = v;
+  if (v === 'cases') renderCases();
+  if (v === 'calendar') renderCalendar();
+  renderUpcoming();
 }
 
-// ── CASE HELPERS ──────────────────────────────────────────────────────────────
-function getCase(id) { return cases.find(c => c.id === id); }
-
-function caseHasMotion(c) {
-  return c.courtDates && c.courtDates.some(d => /motion|suppress|dismiss/i.test(d.type));
-}
-function caseHasPlea(c) {
-  return c.courtDates && c.courtDates.some(d => /plea/i.test(d.type));
-}
-function caseHasPV(c) {
-  return c.charges && /probation violation/i.test(c.charges);
-}
-function caseHasTrial(c) {
-  return c.status === 'trial' || (c.courtDates && c.courtDates.some(d => /trial/i.test(d.type)));
-}
-function caseOpenTodos(c) { return (c.todos || []).filter(t => !t.done).length; }
-
-function nextDate(c) {
-  if (!c.courtDates || !c.courtDates.length) return null;
-  const today = new Date().toISOString().slice(0,10);
-  const upcoming = c.courtDates.filter(d => d.date >= today).sort((a,b) => a.date.localeCompare(b.date));
-  return upcoming[0] || c.courtDates[c.courtDates.length - 1];
-}
-
-function fmtDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-}
-
-// ── RENDER LIST ───────────────────────────────────────────────────────────────
-function setFilter(btn) {
-  document.querySelectorAll('.filt').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  activeFilter = btn.dataset.f;
-  renderList();
-}
-
-function renderList() {
-  const q = document.getElementById('search-input').value.toLowerCase();
-  let filtered = cases.filter(c => {
-    const matchSearch = !q ||
-      c.defendant.toLowerCase().includes(q) ||
-      c.caseNumber.toLowerCase().includes(q) ||
-      (c.charges || '').toLowerCase().includes(q) ||
-      (c.defenseCounsel || '').toLowerCase().includes(q);
-    const matchFilter =
-      activeFilter === 'all' ? true :
-      activeFilter === 'motion' ? caseHasMotion(c) :
-      activeFilter === 'plea' ? caseHasPlea(c) :
-      activeFilter === 'pv' ? caseHasPV(c) :
-      activeFilter === 'trial' ? caseHasTrial(c) : true;
-    return matchSearch && matchFilter;
+// ─── Upcoming sidebar ────────────────────────────────────────────────
+function renderUpcoming() {
+  const today = todayISO();
+  const allDates = [];
+  state.cases.forEach(c => {
+    (c.courtDates || []).forEach(d => {
+      if (d.date >= today) allDates.push({ ...d, caseId: c.id, caseName: c.defendant, caseNumber: c.caseNumber });
+    });
   });
+  allDates.sort((a,b) => a.date.localeCompare(b.date));
 
-  // Sort: upcoming date first
-  filtered.sort((a, b) => {
-    const na = nextDate(a), nb = nextDate(b);
-    if (!na && !nb) return 0;
-    if (!na) return 1; if (!nb) return -1;
-    return na.date.localeCompare(nb.date);
+  // Group by defendant name
+  const groups = {};
+  allDates.forEach(d => {
+    if (!groups[d.caseName]) groups[d.caseName] = { caseName: d.caseName, caseId: d.caseId, caseNumber: d.caseNumber, dates: [] };
+    groups[d.caseName].dates.push(d);
   });
+  const sorted = Object.values(groups).sort((a,b) => (a.dates[0]?.date||'').localeCompare(b.dates[0]?.date||'')).slice(0,7);
 
-  const container = document.getElementById('case-list');
+  const el = document.getElementById('upcoming-list');
+  if (!sorted.length) { el.innerHTML = '<div style="font-size:12px;color:var(--dim)">No upcoming dates</div>'; return; }
+  el.innerHTML = sorted.map(g => `
+    <div class="upcoming-group" onclick="openCase('${g.caseId}')">
+      <div class="upcoming-casenum">${g.caseNumber || ''}</div>
+      <div class="upcoming-name">${g.caseName}</div>
+      ${g.dates.map(d => `
+        <div class="upcoming-row">
+          <span class="upcoming-type">${d.type}</span>
+          <span class="upcoming-date">${fmtShort(d.date)}</span>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+// ─── Cases list ──────────────────────────────────────────────────────
+function renderCases() {
+  const q = (document.getElementById('search')?.value || '').toLowerCase();
+  const filtered = state.cases.filter(c =>
+    !q || [c.defendant, c.caseNumber, c.charges, c.investigator].some(f => f?.toLowerCase().includes(q))
+  );
+  document.getElementById('case-count-label').textContent = `${state.cases.length} case${state.cases.length !== 1 ? 's' : ''}`;
+  const grid = document.getElementById('case-grid');
   if (!filtered.length) {
-    container.innerHTML = '<div class="empty-list">No cases found</div>';
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-title">${state.cases.length ? 'No matches' : 'No cases yet'}</div><div>${state.cases.length ? 'Try a different search.' : 'Click "+ New Case" to get started.'}</div></div>`;
     return;
   }
-
-  container.innerHTML = filtered.map(c => {
-    const nd = nextDate(c);
-    const todos = caseOpenTodos(c);
-    const badges = [
-      caseHasMotion(c) ? '<span class="badge b-motion">motion</span>' : '',
-      caseHasPlea(c) ? '<span class="badge b-plea">plea</span>' : '',
-      caseHasTrial(c) ? '<span class="badge b-trial">trial</span>' : '',
-      caseHasPV(c) ? '<span class="badge b-pv">PV</span>' : '',
-      todos > 0 ? `<span class="badge b-todo">${todos} to-do</span>` : '',
-    ].filter(Boolean).join('');
-
-    return `<div class="case-row${selectedId === c.id ? ' active' : ''}" onclick="selectCase('${c.id}')">
-      <div class="cr-top">
-        <div class="case-num">${c.caseNumber}</div>
-        ${nd ? `<div class="case-date-badge">${fmtDate(nd.date)}</div>` : ''}
+  grid.innerHTML = filtered.map(c => {
+    const next = (c.courtDates||[]).filter(d => d.date >= todayISO()).sort((a,b)=>a.date.localeCompare(b.date))[0];
+    const days = next ? daysUntil(next.date) : null;
+    const urgent = days !== null && days <= 7;
+    return `<div class="case-card" onclick="openCase('${c.id}')">
+      <div class="case-num">${c.caseNumber || 'No case number'}</div>
+      <div class="case-defendant">${c.defendant || 'Unnamed'}</div>
+      <div class="case-charges">${c.charges || 'No charges listed'}</div>
+      <div class="case-meta">
+        <span class="badge badge-${c.status||'active'}">${c.status||'active'}</span>
+        ${next ? `<span class="case-next${urgent?' case-next-urgent':''}">${next.type} · ${fmtShort(next.date)}${days!==null&&days>=0&&days<=14?' ('+days+'d)':''}</span>` : ''}
       </div>
-      <div class="defendant">${c.defendant}</div>
-      <div class="charges-preview">${c.charges || ''}</div>
-      ${badges ? `<div class="row-badges">${badges}</div>` : ''}
     </div>`;
   }).join('');
 }
 
-function updateStats() {
-  document.getElementById('s-total').textContent = cases.length;
-  document.getElementById('s-motions').textContent = cases.filter(caseHasMotion).length;
-  document.getElementById('s-pleas').textContent = cases.filter(caseHasPlea).length;
-  document.getElementById('s-todos').textContent = cases.reduce((n,c) => n + caseOpenTodos(c), 0);
-}
-
-// ── DETAIL VIEW ───────────────────────────────────────────────────────────────
-function selectCase(id) {
-  selectedId = id;
-  renderList();
+// ─── Case detail ─────────────────────────────────────────────────────
+let currentTab = 'overview';
+function openCase(id) {
+  state.currentCaseId = id;
+  currentTab = 'overview';
+  showView('detail');
   renderDetail();
 }
-
 function renderDetail() {
-  const c = getCase(selectedId);
+  const c = state.cases.find(x => x.id === state.currentCaseId);
+  if (!c) { showView('cases'); return; }
+  document.getElementById('det-casenum').textContent = c.caseNumber || '';
+  document.getElementById('det-name').textContent = c.defendant || '';
+  document.getElementById('det-charges').textContent = c.charges || '';
+  document.getElementById('tab-court').textContent = `Court Dates (${(c.courtDates||[]).length})`;
+  document.getElementById('tab-todos').textContent = `To-Do (${(c.todos||[]).filter(t=>!t.done).length})`;
+  setTab(currentTab);
+  renderUpcoming();
+}
+function setTab(t) {
+  currentTab = t;
+  ['overview','court','plea','todos','notes'].forEach(tab => {
+    document.getElementById('tab-'+tab)?.classList.toggle('active', tab === t);
+  });
+  const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
-  document.getElementById('detail-empty').style.display = 'none';
-  const dc = document.getElementById('detail-content');
-  dc.style.display = 'flex';
+  const el = document.getElementById('tab-content');
 
-  const nd = nextDate(c);
-  const scroll = document.getElementById('detail-scroll');
-  scroll.innerHTML = `
-    <div class="dh">
-      <div class="dh-left">
-        <div class="d-casenum">${c.caseNumber}</div>
-        <div class="d-defendant">${c.defendant}</div>
-        <div class="d-charges">${c.charges || '<em style="color:var(--text3)">No charges entered</em>'}</div>
-      </div>
-      <div class="dh-actions">
-        ${c.driveLink ? `<a href="${c.driveLink}" target="_blank" class="drive-link btn btn-sm">📁 Drive folder</a>` : ''}
-      </div>
-    </div>
+  if (t === 'overview') {
+    el.innerHTML = `
+      <div class="info-grid">
+        <div><div class="info-label">Case Number</div><div class="info-value info-mono">${c.caseNumber||'—'}</div></div>
+        <div><div class="info-label">Status</div><div class="info-value"><span class="badge badge-${c.status||'active'}">${c.status||'active'}</span></div></div>
+        <div><div class="info-label">Defendant</div><div class="info-value">${c.defendant||'—'}</div></div>
+        <div><div class="info-label">Court</div><div class="info-value">${c.court||'—'}</div></div>
+        <div class="info-span2"><div class="info-label">Charges</div><div class="info-value">${c.charges||'—'}</div></div>
+        <div><div class="info-label">Lead Investigator</div><div class="info-value">${c.investigator||'—'}</div></div>
+        <div><div class="info-label">Lab / TBI Analyst</div><div class="info-value">${c.analyst||'—'}</div></div>
+        <div><div class="info-label">Defense Counsel</div><div class="info-value">${c.defenseCounsel||'—'}</div></div>
+        <div><div class="info-label">Judge</div><div class="info-value">${c.judge||'—'}</div></div>
+        <div class="info-span2"><div class="info-label">Google Drive Folder</div><div class="info-value">${c.driveLink ? `<a href="${c.driveLink}" target="_blank">Open folder ↗</a>` : '<span style="color:var(--dim)">No link yet — add via Edit</span>'}</div></div>
+        ${c.summary ? `<div class="info-span2"><div class="info-label">Summary</div><div class="info-value" style="white-space:pre-wrap">${c.summary}</div></div>` : ''}
+      </div>`;
+  }
 
-    <!-- META -->
-    <div class="sec">
-      <div class="sec-title">Case details</div>
-      <div class="meta-grid">
-        <div class="meta-item"><div class="meta-label">Defense counsel</div><input class="meta-input" value="${c.defenseCounsel||''}" placeholder="Attorney name" onchange="updateField('defenseCounsel',this.value)"></div>
-        <div class="meta-item"><div class="meta-label">Judge</div><input class="meta-input" value="${c.judge||''}" placeholder="Judge name" onchange="updateField('judge',this.value)"></div>
-        <div class="meta-item"><div class="meta-label">Investigator</div><input class="meta-input" value="${c.investigator||''}" placeholder="Investigator name" onchange="updateField('investigator',this.value)"></div>
-        <div class="meta-item"><div class="meta-label">TBI Analyst</div><input class="meta-input" value="${c.analyst||''}" placeholder="Analyst name" onchange="updateField('analyst',this.value)"></div>
+  if (t === 'court') {
+    const sorted = [...(c.courtDates||[])].sort((a,b)=>a.date.localeCompare(b.date));
+    el.innerHTML = `
+      <div class="section-head">
+        <div class="section-title">Court Appearances</div>
+        <button class="btn btn-secondary btn-sm" onclick="addCourtDate()">＋ Add Date</button>
       </div>
-    </div>
-
-    <!-- DRIVE LINK -->
-    <div class="sec">
-      <div class="sec-title">Google Drive folder link</div>
-      <div class="drive-row">
-        <input type="text" value="${c.driveLink||''}" placeholder="Paste Drive folder URL…" onchange="updateField('driveLink',this.value)">
-        ${c.driveLink ? `<a href="${c.driveLink}" target="_blank" class="btn btn-sm">Open ↗</a>` : ''}
-      </div>
-    </div>
-
-    <!-- COURT DATES -->
-    <div class="sec">
-      <div class="sec-title">
-        <span>Court dates</span>
-      </div>
-      <div id="cd-list">
-        ${(c.courtDates||[]).map(d => `
-          <div class="cd-row${d.date >= new Date().toISOString().slice(0,10) ? ' upcoming' : ''}">
-            <div>
-              <div class="cd-date">${fmtDate(d.date)}</div>
-              <div class="cd-type">${d.type}</div>
-              ${d.notes ? `<div class="cd-notes">${d.notes}</div>` : ''}
+      ${!sorted.length ? '<div class="empty"><div class="empty-title">No court dates</div></div>' : sorted.map(d => {
+        const days = daysUntil(d.date);
+        const isPast = days !== null && days < 0;
+        const dow = d.date ? new Date(d.date+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'}) : '';
+        return `<div class="court-date-card">
+          <div class="cd-date">${dow.toUpperCase()} · ${fmtDate(d.date)}${!isPast&&days!==null&&days<=14?' <span style="color:'+(days<=3?'var(--red)':'var(--orange)')+'">· '+(days===0?'TODAY':days+'d')+'</span>':isPast?' <span style="color:var(--dim)">· past</span>':''}</div>
+          <div class="cd-row">
+            <div class="field"><label>Date</label><input type="date" value="${d.date||''}" onchange="updateCourtDate('${d.id}','date',this.value)"></div>
+            <div class="field"><label>Type</label>
+              <select onchange="updateCourtDate('${d.id}','type',this.value)">
+                ${['Arraignment','Bond Hearing','Status Hearing','Motion Hearing','Suppression Hearing','Plea Hearing','Sentencing','Trial','Discussion','Probation Violation Continuance','Other'].map(opt=>`<option${d.type===opt?' selected':''}>${opt}</option>`).join('')}
+              </select>
             </div>
-            <button class="cd-del" onclick="removeCourtDate('${d.id}')" title="Remove">×</button>
-          </div>`).join('')}
-      </div>
-      <div class="add-cd">
-        <input type="date" id="cd-date-input">
-        <select id="cd-type-input">
-          <option value="">Type…</option>
-          <option>Discussion</option>
-          <option>Status Hearing</option>
-          <option>Plea Hearing</option>
-          <option>Motion Hearing</option>
-          <option>Probation Violation Continuance</option>
-          <option>Trial</option>
-          <option>Sentencing</option>
-          <option>Other</option>
-        </select>
-        <input type="text" id="cd-notes-input" placeholder="Notes…">
-        <button class="btn btn-sm btn-primary" onclick="addCourtDate()">Add</button>
-      </div>
-    </div>
+          </div>
+          <div class="field"><label>Notes</label><textarea rows="2" onchange="updateCourtDate('${d.id}','notes',this.value)">${d.notes||''}</textarea></div>
+          <button class="btn btn-danger btn-sm" onclick="deleteCourtDate('${d.id}')">Delete</button>
+        </div>`;
+      }).join('')}`;
+  }
 
-    <!-- TODOS -->
-    <div class="sec">
-      <div class="sec-title">To-do list</div>
-      <div id="todo-list">
-        ${(c.todos||[]).map(t => `
-          <div class="todo-row">
-            <input type="checkbox" class="todo-cb" ${t.done?'checked':''} onchange="toggleTodo('${t.id}',this.checked)">
-            <span class="todo-text${t.done?' done-text':''}">${t.text}</span>
-            <button class="todo-del" onclick="removeTodo('${t.id}')">×</button>
-          </div>`).join('')}
-      </div>
-      <div class="add-todo">
-        <input type="text" id="todo-input" placeholder="Add a to-do…" onkeydown="if(event.key==='Enter')addTodo()">
-        <button class="btn btn-sm btn-primary" onclick="addTodo()">Add</button>
-      </div>
-    </div>
-
-    <!-- PLEA -->
-    <div class="sec">
-      <div class="sec-title">Plea offer</div>
-      <div class="plea-grid">
-        <div class="plea-field"><div class="plea-label">Status</div>
-          <select class="plea-input" onchange="updateField('pleaStatus',this.value)">
-            <option value="none" ${c.pleaStatus==='none'?'selected':''}>None</option>
-            <option value="offered" ${c.pleaStatus==='offered'?'selected':''}>Offered</option>
-            <option value="accepted" ${c.pleaStatus==='accepted'?'selected':''}>Accepted</option>
-            <option value="rejected" ${c.pleaStatus==='rejected'?'selected':''}>Rejected</option>
-            <option value="expired" ${c.pleaStatus==='expired'?'selected':''}>Expired</option>
-          </select>
+  if (t === 'plea') {
+    const ps = c.pleaStatus || 'none';
+    const statusColors = { extended:'var(--purple)', accepted:'var(--green)', rejected:'var(--red)', countered:'var(--orange)', withdrawn:'var(--dim)' };
+    el.innerHTML = `
+      <div class="plea-card">
+        <div class="row2">
+          <div class="field"><label>Offered Charge(s)</label><input type="text" value="${c.pleaOfferedCharge||''}" oninput="updateCaseField('pleaOfferedCharge',this.value)" placeholder="e.g. Reckless Endangerment, Class E Felony"></div>
+          <div class="field"><label>Recommended Sentence</label><input type="text" value="${c.pleaSentence||''}" oninput="updateCaseField('pleaSentence',this.value)" placeholder="e.g. 2 years probation, suspended"></div>
         </div>
-        <div class="plea-field"><div class="plea-label">Offered charge</div><input class="plea-input" value="${c.pleaOfferedCharge||''}" placeholder="e.g. Assault (amended)" onchange="updateField('pleaOfferedCharge',this.value)"></div>
-        <div class="plea-field"><div class="plea-label">Sentence offer</div><input class="plea-input" value="${c.pleaSentence||''}" placeholder="e.g. 2 yrs probation" onchange="updateField('pleaSentence',this.value)"></div>
-        <div class="plea-field"><div class="plea-label">Expiration</div><input class="plea-input" type="date" value="${c.pleaExpiration||''}" onchange="updateField('pleaExpiration',this.value)"></div>
+        <div class="row2">
+          <div class="field"><label>Offer Status</label>
+            <select onchange="updateCaseField('pleaStatus',this.value)">
+              ${[['none','No offer extended'],['extended','Extended — pending'],['accepted','Accepted'],['rejected','Rejected'],['countered','Countered by defense'],['withdrawn','Withdrawn by State']].map(([v,l])=>`<option value="${v}"${ps===v?' selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Offer Expiration</label><input type="date" value="${c.pleaExpiration||''}" onchange="updateCaseField('pleaExpiration',this.value)"></div>
+        </div>
+        <div class="field"><label>Notes & Conditions</label><textarea rows="4" oninput="updateCaseField('pleaNotes',this.value)" placeholder="Conditions, counter-offers, defense communications, victim input, rationale...">${c.pleaNotes||''}</textarea></div>
       </div>
-      <div style="margin-top:8px"><div class="plea-label">Plea notes</div><textarea class="notes" style="margin-top:4px" placeholder="Notes on plea negotiations…" onchange="updateField('pleaNotes',this.value)">${c.pleaNotes||''}</textarea></div>
-    </div>
+      ${ps !== 'none' ? `<div class="plea-status-banner" style="color:${statusColors[ps]||'var(--muted)'};background:${statusColors[ps]||'#888'}1a;border:1px solid ${statusColors[ps]||'#888'}44">
+        Status: ${ps.charAt(0).toUpperCase()+ps.slice(1)}${c.pleaOfferedCharge?' — '+c.pleaOfferedCharge:''}${c.pleaSentence?' · '+c.pleaSentence:''}
+      </div>` : ''}`;
+  }
 
-    <!-- COURT NOTES -->
-    <div class="sec">
-      <div class="sec-title">Court notes / summary</div>
-      <textarea class="notes" placeholder="Running notes, strategy, observations…" onchange="updateField('courtNotes',this.value)">${c.courtNotes||''}</textarea>
-    </div>
+  if (t === 'todos') {
+    el.innerHTML = `
+      <div class="section-title" style="margin-bottom:14px">Tasks</div>
+      <div id="todo-list">
+        ${(c.todos||[]).map(t => `<div class="todo-item">
+          <button class="todo-check${t.done?' done':''}" onclick="toggleTodo('${t.id}')">${t.done?'☑':'☐'}</button>
+          <span class="todo-text${t.done?' done':''}">${t.text}</span>
+          <button class="todo-del" onclick="deleteTodo('${t.id}')">×</button>
+        </div>`).join('')}
+      </div>
+      <div class="todo-add">
+        <input type="text" id="new-todo" placeholder="Add a task — press Enter" onkeydown="if(event.key==='Enter')addTodo()">
+        <button class="btn btn-primary btn-sm" onclick="addTodo()">Add</button>
+      </div>`;
+  }
 
-    <div style="height:1rem"></div>
-  `;
+  if (t === 'notes') {
+    el.innerHTML = `
+      <div class="section-title" style="margin-bottom:14px">In-Court Notes (work product)</div>
+      <div class="notes-area">
+        <textarea placeholder="Live notes from court appearances.&#10;&#10;[5/20/26 — Discussion] ..." oninput="updateCaseField('courtNotes',this.value)">${c.courtNotes||''}</textarea>
+      </div>`;
+  }
 }
 
-// ── CASE MUTATIONS ────────────────────────────────────────────────────────────
-function updateField(field, value) {
-  const c = getCase(selectedId);
+function updateCaseField(field, value) {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
   c[field] = value;
-  updateStats();
-  scheduleSave();
+  save();
+  // Re-render plea tab status banner without full re-render
+  if (field === 'pleaStatus' || field === 'pleaOfferedCharge' || field === 'pleaSentence') {
+    setTab('plea');
+  }
 }
-
 function addCourtDate() {
-  const c = getCase(selectedId);
+  const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
-  const date = document.getElementById('cd-date-input').value;
-  const type = document.getElementById('cd-type-input').value || 'Other';
-  const notes = document.getElementById('cd-notes-input').value;
-  if (!date) return;
-  if (!c.courtDates) c.courtDates = [];
-  c.courtDates.push({ id: 'cd' + Date.now(), date, type, notes });
-  renderDetail();
-  renderList();
-  scheduleSave();
+  c.courtDates = [...(c.courtDates||[]), { id: uid(), date: todayISO(), type: 'Hearing', notes: '' }];
+  save(); renderDetail();
 }
-
-function removeCourtDate(cdId) {
-  const c = getCase(selectedId);
+function updateCourtDate(cdId, field, value) {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
-  c.courtDates = c.courtDates.filter(d => d.id !== cdId);
-  renderDetail();
-  renderList();
-  scheduleSave();
+  const d = c.courtDates.find(x => x.id === cdId);
+  if (d) { d[field] = value; save(); }
+  if (field === 'date' || field === 'type') renderDetail();
 }
-
+function deleteCourtDate(cdId) {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
+  if (!c) return;
+  c.courtDates = c.courtDates.filter(x => x.id !== cdId);
+  save(); renderDetail();
+}
+function toggleTodo(tid) {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
+  if (!c) return;
+  const t = c.todos.find(x => x.id === tid);
+  if (t) { t.done = !t.done; save(); renderDetail(); }
+}
+function deleteTodo(tid) {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
+  if (!c) return;
+  c.todos = c.todos.filter(x => x.id !== tid);
+  save(); renderDetail();
+}
 function addTodo() {
-  const c = getCase(selectedId);
+  const inp = document.getElementById('new-todo');
+  if (!inp || !inp.value.trim()) return;
+  const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
-  const input = document.getElementById('todo-input');
-  const text = input.value.trim();
-  if (!text) return;
-  if (!c.todos) c.todos = [];
-  c.todos.push({ id: 't' + Date.now(), text, done: false });
-  input.value = '';
-  renderDetail();
-  updateStats();
-  scheduleSave();
+  c.todos = [...(c.todos||[]), { id: uid(), text: inp.value.trim(), done: false }];
+  inp.value = '';
+  save(); renderDetail();
 }
-
-function toggleTodo(tid, done) {
-  const c = getCase(selectedId);
+function deleteCurrentCase() {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
-  const t = c.todos.find(t => t.id === tid);
-  if (t) t.done = done;
-  updateStats();
-  renderList();
-  scheduleSave();
+  if (!confirm(`Delete case for ${c.defendant}? This cannot be undone.`)) return;
+  state.cases = state.cases.filter(x => x.id !== state.currentCaseId);
+  state.currentCaseId = null;
+  save(); showView('cases');
 }
 
-function removeTodo(tid) {
-  const c = getCase(selectedId);
+// ─── Case modal ──────────────────────────────────────────────────────
+function openNewCase() {
+  editingCaseId = null;
+  document.getElementById('case-modal-title').textContent = 'New Case';
+  ['caseNumber','defendant','charges','court','judge','investigator','analyst','defenseCounsel','driveLink','summary'].forEach(f => {
+    const el = document.getElementById('f-'+f);
+    if (el) el.value = f === 'court' ? 'Coffee County Circuit Court' : '';
+  });
+  document.getElementById('f-status').value = 'active';
+  document.getElementById('case-modal').classList.remove('hidden');
+}
+function openEditCase() {
+  const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) return;
-  c.todos = c.todos.filter(t => t.id !== tid);
-  renderDetail();
-  updateStats();
-  scheduleSave();
+  editingCaseId = c.id;
+  document.getElementById('case-modal-title').textContent = 'Edit Case';
+  ['caseNumber','defendant','charges','court','judge','investigator','analyst','defenseCounsel','driveLink','summary'].forEach(f => {
+    const el = document.getElementById('f-'+f);
+    if (el) el.value = c[f] || '';
+  });
+  document.getElementById('f-status').value = c.status || 'active';
+  document.getElementById('case-modal').classList.remove('hidden');
+}
+function saveCase() {
+  const defendant = document.getElementById('f-defendant').value.trim();
+  if (!defendant) { alert('Defendant name is required.'); return; }
+  if (editingCaseId) {
+    const c = state.cases.find(x => x.id === editingCaseId);
+    ['caseNumber','defendant','charges','court','judge','investigator','analyst','defenseCounsel','driveLink','summary'].forEach(f => {
+      c[f] = document.getElementById('f-'+f)?.value || '';
+    });
+    c.status = document.getElementById('f-status').value;
+  } else {
+    const c = { id: uid(), courtDates: [], todos: [], courtNotes: '', status: 'active' };
+    ['caseNumber','defendant','charges','court','judge','investigator','analyst','defenseCounsel','driveLink','summary'].forEach(f => {
+      c[f] = document.getElementById('f-'+f)?.value || '';
+    });
+    c.status = document.getElementById('f-status').value;
+    state.cases.unshift(c);
+  }
+  save();
+  closeModal('case-modal');
+  if (editingCaseId) renderDetail(); else renderCases();
+  renderUpcoming();
+}
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ─── Calendar ─────────────────────────────────────────────────────────
+function renderCalendar() {
+  const { calYear: y, calMonth: m } = state;
+  document.getElementById('cal-month-label').textContent = new Date(y, m, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const prevDays = new Date(y, m, 0).getDate();
+  const today = todayISO();
+
+  // Build event map
+  const events = {};
+  state.cases.forEach(c => {
+    (c.courtDates||[]).forEach(d => {
+      if (!events[d.date]) events[d.date] = [];
+      events[d.date].push({ type: d.type, name: c.defendant, id: c.id });
+    });
+  });
+
+  const cells = [];
+  for (let i = firstDay-1; i >= 0; i--) cells.push({ day: prevDays-i, other: true, iso: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ day: d, other: false, iso });
+  }
+  while (cells.length % 7 !== 0) cells.push({ day: cells.length - (firstDay+daysInMonth)+1, other: true, iso: null });
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="cal-dow">${d}</div>`).join('') +
+    cells.map(cell => `
+      <div class="cal-day${cell.other?' other':''}${cell.iso===today?' today':''}">
+        <div class="cal-daynum">${cell.day}</div>
+        ${cell.iso ? (events[cell.iso]||[]).map(e => `<div class="cal-event" onclick="openCase('${e.id}')" title="${e.name} — ${e.type}">${e.name.split(' ').slice(-1)[0]} · ${e.type}</div>`).join('') : ''}
+      </div>`).join('');
+}
+function calPrev() { if (state.calMonth === 0) { state.calYear--; state.calMonth = 11; } else state.calMonth--; renderCalendar(); }
+function calNext() { if (state.calMonth === 11) { state.calYear++; state.calMonth = 0; } else state.calMonth++; renderCalendar(); }
+function calToday() { const d = new Date(); state.calYear = d.getFullYear(); state.calMonth = d.getMonth(); renderCalendar(); }
+
+// ─── PDF Upload & Parse ──────────────────────────────────────────────
+function openUpload() {
+  document.getElementById('parse-status').textContent = '';
+  document.getElementById('import-results-wrap').classList.add('hidden');
+  document.getElementById('import-confirm-btn').classList.add('hidden');
+  document.getElementById('pdf-input').value = '';
+  document.getElementById('upload-modal').classList.remove('hidden');
+  pendingImports = [];
+  setupDropZone();
+}
+function setupDropZone() {
+  const dz = document.getElementById('drop-zone');
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add('dragover'); };
+  dz.ondragleave = () => dz.classList.remove('dragover');
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files[0]) handlePdfFile(e.dataTransfer.files[0]); };
+}
+async function handlePdfFile(file) {
+  if (!file || file.type !== 'application/pdf') { document.getElementById('parse-status').textContent = 'Please select a PDF file.'; return; }
+  document.getElementById('parse-status').textContent = '⏳ Reading PDF...';
+  document.getElementById('import-results-wrap').classList.add('hidden');
+  document.getElementById('import-confirm-btn').classList.add('hidden');
+  pendingImports = [];
+  try {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      fullText += tc.items.map(item => item.str).join(' ') + '\n';
+    }
+    parseDocket(fullText, file.name);
+  } catch(e) {
+    document.getElementById('parse-status').textContent = '❌ Could not read PDF: ' + e.message;
+  }
 }
 
-function saveCurrentCase() { saveCases(); }
+function parseDocket(text, filename) {
+  document.getElementById('parse-status').textContent = '🔍 Scanning for your cases...';
 
-function deleteCase() {
-  if (!confirm(`Delete this case? This cannot be undone.`)) return;
-  cases = cases.filter(c => c.id !== selectedId);
-  selectedId = null;
-  document.getElementById('detail-empty').style.display = 'flex';
-  document.getElementById('detail-content').style.display = 'none';
-  renderList();
-  updateStats();
-  saveCases();
+  // Extract docket date from filename or text
+  const dateMatch = filename.match(/(\d{8})/) || text.match(/(\w+ \d+,? \d{4})/);
+  let docketDate = todayISO();
+  const filenameDate = filename.match(/(\d{2})(\d{2})(\d{4})/);
+  if (filenameDate) docketDate = `${filenameDate[3]}-${filenameDate[1]}-${filenameDate[2]}`;
+  else {
+    const textDate = text.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
+    if (textDate) {
+      const months = { January:'01',February:'02',March:'03',April:'04',May:'05',June:'06',July:'07',August:'08',September:'09',October:'10',November:'11',December:'12' };
+      const mo = months[textDate[1]];
+      if (mo) docketDate = `${textDate[3]}-${mo}-${String(textDate[2]).padStart(2,'0')}`;
+    }
+  }
+
+  // Split into case blocks — each block starts with a case number pattern
+  const blocks = text.split(/(?=16[A-Z]{2}\d-\d{4}-[A-Z]{2}-\d+)/);
+  const myAtty = /Pl\s*Atty[:\s]+Jason\s+Ponder/i;
+  const found = [];
+
+  blocks.forEach(block => {
+    if (!myAtty.test(block)) return;
+    // Extract case number
+    const cnMatch = block.match(/(16[A-Z]{2}\d-\d{4}-[A-Z]{2}-\d+)/);
+    if (!cnMatch) return;
+    const caseNumber = cnMatch[1].trim();
+    // Extract defendant name — comes after case number on next line
+    const defMatch = block.match(/(?:ST\.\s*of\s*TN\s+vs?\s+)([A-Z][A-Z ,'.()-]+?)(?:\s{2,}|\n)/i);
+    const defendant = defMatch ? defMatch[1].replace(/\s+/g,' ').trim() : '';
+    // Extract hearing type
+    const htMatch = block.match(/Hearing\s*Type[:\s]+([^\n\r]+)/i);
+    const hearingType = htMatch ? htMatch[1].trim() : 'Hearing';
+    // Map hearing type
+    const typeMap = {
+      'Discussion': 'Discussion',
+      'Probation Violation Continuance': 'Probation Violation Continuance',
+      'Arraignment': 'Arraignment',
+      'Status': 'Status Hearing',
+      'Plea Hearing': 'Plea Hearing',
+      'Motion': 'Motion Hearing',
+      'Final Plea Deadline': 'Plea Hearing',
+      'Sentencing': 'Sentencing',
+      'Trial': 'Trial',
+    };
+    let mappedType = 'Discussion';
+    for (const [k,v] of Object.entries(typeMap)) {
+      if (hearingType.toLowerCase().includes(k.toLowerCase())) { mappedType = v; break; }
+    }
+    // Hearing notes
+    const hnMatch = block.match(/Hearing\s*Notes[:\s]+([^\n\r]+)/i);
+    const hearingNotes = hnMatch ? hnMatch[1].trim() : '';
+    // Extract charges
+    const chargeLines = [];
+    const chargeRegex = /\d{2}-\d{2}-\d{3,4}[^A-Z]*([A-Z][A-Z/ &,().'-]+(?:\s[A-Z][A-Z/ &,().'-]+)*)/g;
+    let cm;
+    while ((cm = chargeRegex.exec(block)) !== null) chargeLines.push(cm[1].trim());
+    const charges = [...new Set(chargeLines)].join('; ');
+
+    found.push({ caseNumber, defendant, charges, hearingType: mappedType, hearingNotes, docketDate, isMotion: mappedType.includes('Motion') });
+  });
+
+  if (!found.length) {
+    document.getElementById('parse-status').textContent = '⚠ No cases found for Jason Ponder in this PDF.';
+    return;
+  }
+
+  pendingImports = found;
+  const existing = state.cases.map(c => c.caseNumber);
+  document.getElementById('parse-status').textContent = `Found ${found.length} case${found.length!==1?'s':''} for Jason Ponder on ${fmtDate(docketDate)}`;
+  document.getElementById('import-count-label').textContent = `${found.length} case${found.length!==1?'s':''} found`;
+  document.getElementById('import-results').innerHTML = found.map(f => {
+    const isNew = !existing.includes(f.caseNumber);
+    const isMotion = f.isMotion;
+    return `<div class="import-row">
+      <span class="import-status">${isNew ? '🆕' : '📅'}</span>
+      <div class="import-info">
+        <div class="import-name">${f.defendant || f.caseNumber} ${isMotion ? '<span style="color:var(--red);font-size:11px;font-weight:700">⚑ MOTION</span>':''}</div>
+        <div class="import-case">${f.caseNumber}</div>
+        <div class="import-type">${f.hearingType}${f.hearingNotes?' · '+f.hearingNotes:''}</div>
+      </div>
+      <span style="font-size:11px;color:${isNew?'var(--green)':'var(--cyan)'};">${isNew?'New case':'Add date'}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('import-results-wrap').classList.remove('hidden');
+  document.getElementById('import-confirm-btn').classList.remove('hidden');
 }
 
-// ── NEW CASE ──────────────────────────────────────────────────────────────────
-function openNewCase() { document.getElementById('new-case-modal').style.display = 'flex'; }
-function closeModal() { document.getElementById('new-case-modal').style.display = 'none'; }
-
-function createCase() {
-  const num = document.getElementById('nc-num').value.trim();
-  const def = document.getElementById('nc-def').value.trim();
-  if (!num || !def) { alert('Case number and defendant name are required.'); return; }
-  const slug = def.split(' ')[1] || def.split(' ')[0];
-  const id = 'case_' + slug.toLowerCase().replace(/[^a-z]/g,'') + '_' + num.split('-').pop();
-  const newCase = {
-    id, caseNumber: num, defendant: def,
-    charges: document.getElementById('nc-charges').value.trim(),
-    status: 'active',
-    court: 'Coffee County Circuit Court',
-    judge: 'Hon. Robert T. Carter',
-    defenseCounsel: document.getElementById('nc-defense').value.trim(),
-    investigator: '', analyst: '', driveLink: '', summary: '',
-    courtDates: [], todos: [], courtNotes: '',
-    pleaStatus: 'none', pleaOfferedCharge: '', pleaSentence: '', pleaExpiration: '', pleaNotes: ''
-  };
-  cases.unshift(newCase);
-  closeModal();
-  ['nc-num','nc-def','nc-charges','nc-defense'].forEach(id => document.getElementById(id).value = '');
-  selectedId = id;
-  renderList();
-  renderDetail();
-  updateStats();
-  saveCases();
+function confirmImport() {
+  let added = 0, updated = 0;
+  pendingImports.forEach(f => {
+    const existing = state.cases.find(c => c.caseNumber === f.caseNumber);
+    const newDate = { id: uid(), date: f.docketDate, type: f.hearingType, notes: f.hearingNotes || '' };
+    if (existing) {
+      // Don't duplicate the same date+type combo
+      const alreadyHas = existing.courtDates?.some(d => d.date === f.docketDate && d.type === f.hearingType);
+      if (!alreadyHas) { existing.courtDates = [...(existing.courtDates||[]), newDate]; }
+      // Add motion to-do if needed
+      if (f.isMotion && !existing.todos?.some(t => t.text.includes('Motion') && t.text.includes(f.docketDate))) {
+        existing.todos = [...(existing.todos||[]), { id: uid(), text: `⚑ Prep for Motion Hearing — ${fmtDate(f.docketDate)}`, done: false }];
+      }
+      updated++;
+    } else {
+      const c = {
+        id: uid(), caseNumber: f.caseNumber, defendant: f.defendant, charges: f.charges,
+        status: 'active', court: 'Coffee County Circuit Court', judge: 'Hon. Robert T. Carter',
+        defenseCounsel: '', investigator: '', analyst: '', driveLink: '', summary: '',
+        courtDates: [newDate],
+        todos: f.isMotion ? [{ id: uid(), text: `⚑ Prep for Motion Hearing — ${fmtDate(f.docketDate)}`, done: false }] : [],
+        courtNotes: '', pleaStatus: 'none'
+      };
+      state.cases.unshift(c);
+      added++;
+    }
+  });
+  save();
+  closeModal('upload-modal');
+  renderCases();
+  renderUpcoming();
+  toast(`✓ Imported: ${added} new case${added!==1?'s':''}, ${updated} date${updated!==1?'s':''} updated`);
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
-window.onload = loadGIS;
+// ─── Toast ───────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ─── Seed data ───────────────────────────────────────────────────────
+const SEED_CASES = [
+  { id:"case_anderson_50126", caseNumber:"16CC1-2025-CR-50126", defendant:"Jeffery Dwight Anderson", charges:"Aggravated Assault - Use or Display Deadly Weapon (Counts 1,3); Domestic Assault (Count 2); Aggravated Assault on Law Enforcement Officer (Counts 4,5)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Laura Riddle Pickering", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_anderson_48274", caseNumber:"16CC1-2022-CR-48274", defendant:"Jeffrey Dwight Anderson", charges:"Probation Violation - Booked (Count 10)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Laura Riddle Pickering", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Probation Violation Continuance",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_baltimore_41777", caseNumber:"16CC1-2015-CR-41777", defendant:"Robert Baltimore", charges:"Probation Violation - Booked (Count 3)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Laura Riddle Pickering", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Probation Violation Continuance",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_baltimore_50290", caseNumber:"16CC1-2025-CR-50290", defendant:"Robert Lee Allen Baltimore", charges:"Sexual Offender Registration Form Violation (Count 1)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Laura Riddle Pickering", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_black_48443", caseNumber:"16CC1-2022-CR-48443", defendant:"Brandy Michelle Black", charges:"Probation Violation - Booked - Drug Related (Count 6)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"C. Brent Keeton", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_carter_45072", caseNumber:"16CC1-2018-CR-45072", defendant:"Raymond Shane Carter", charges:"Probation Violation - Booked (Count 3)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Jason Huskey", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Probation Violation Continuance",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_england_50563", caseNumber:"16CC1-2025-CR-50563", defendant:"Gunner Laim England", charges:"Schedule I Drugs: MFG/Del/Sell/Poss (Counts 1,2,7); Schedule II Drugs: Alfentanil .5g+ (Counts 3,4,8); Schedule III Drugs: MFG/Del/Sell/Poss (Counts 5,6,9)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Michael Stewart", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_glascoe_45727", caseNumber:"16CC1-2019-CR-45727", defendant:"Christopher Lee Glascoe", charges:"Probation Violation - Booked - Drug Related (Count 2)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Margo Lamb Kilgore", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Probation Violation Continuance",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_hayes_48518", caseNumber:"16CC1-2022-CR-48518", defendant:"Mathew Douglas Hayes", charges:"Schedule I Drugs: MFG/Del/Sell/Poss (Counts 1-6); Simple Poss/Casual Exchange (Count 7)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Andy Peters Davis", investigator:"", analyst:"", driveLink:"", summary:"Status hearing — docket note: Obtain Trial Date. Moving toward trial.", courtDates:[{id:"cd1",date:"2026-05-20",type:"Status Hearing",notes:"9:00 AM — Obtain Trial Date"}], todos:[{id:"t1",text:"Obtain trial date at May 20 hearing",done:false}], courtNotes:"", pleaStatus:"none" },
+  { id:"case_hudson_50741", caseNumber:"16CC1-2026-CR-50741", defendant:"Vernon Barry Hudson", charges:"Schedule I/II/III/VI Drugs; Poss Unlawful Drug Paraphernalia", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_jackson_48507", caseNumber:"16CC1-2022-CR-48507", defendant:"Elonda Nicole Jackson", charges:"Probation Violation - Booked (Count 3)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Willis McKee", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Probation Violation Continuance",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_jones_50448", caseNumber:"16CC1-2025-CR-50448", defendant:"James Robert Jones & Shirley Annamaria Mathews Jones", charges:"James: Possession of Handgun - Convicted Felon (Count 1), Simple Poss (Count 2); Shirley: Simple Poss (Count 1)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"W. Alan Rose", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_keith_50245", caseNumber:"16CC1-2025-CR-50245", defendant:"Brian Patrick Keith", charges:"Schedule II Drugs (Counts 1,2); Schedule VI Drugs (Count 3); Schedule I Drugs (Count 4)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Emily D. Baker", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_mask_50384", caseNumber:"16CC1-2025-CR-50384", defendant:"Daniel Mask & Teaira Ann Mask", charges:"Both: Schedule II Cocaine .5g+ (Count 1); Schedule VI Drugs (Count 2)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Daniel: Garth Segroves; Teaira: Trenena Stanley", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_merrell_49609", caseNumber:"16CC1-2024-CR-49609", defendant:"Timothy Allen Merrell", charges:"Possession Weapon - Convicted Felon (Count 1); Poss Unlawful Drug Paraphernalia (Count 2)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Andy Peters Davis", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Plea Hearing",notes:"9:00 AM — possible entry of plea"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_partin_50713", caseNumber:"16CC1-2026-CR-50713", defendant:"John Jacoby Wyah Partin", charges:"Assault on Law Enforcement Officer (Count 1)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Jake Beggin", investigator:"", analyst:"", driveLink:"", summary:"Companion case to 16CC1-2025-CR-50107 (sex offender registration)", courtDates:[{id:"cd1",date:"2026-05-20",type:"Plea Hearing",notes:"9:00 AM — possible entry of plea. Companion case 50107 also set."}], todos:[{id:"t1",text:"Confirm plea terms consistent across both Partin cases (50713 & 50107)",done:false}], courtNotes:"", pleaStatus:"none" },
+  { id:"case_partin_50107", caseNumber:"16CC1-2025-CR-50107", defendant:"John Jacoby Wyah Partin", charges:"Sexual Offender Registration Form Violation (Count 1)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Jake Beggin", investigator:"", analyst:"", driveLink:"", summary:"Companion case to 16CC1-2026-CR-50713 (assault on LEO)", courtDates:[{id:"cd1",date:"2026-05-20",type:"Plea Hearing",notes:"9:00 AM — possible entry of plea. Companion case 50713 also set."}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_riddervold_50698", caseNumber:"16CC1-2026-CR-50698", defendant:"William A. Riddervold", charges:"Aggravated Assault on First Responder (Count 1); Resist Stop/Arrest/Search - Involving Weapon (Count 2)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Margo Lamb Kilgore", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_sebastian_49446", caseNumber:"16CC1-2024-CR-49446", defendant:"Kyola Anissa Sebastian", charges:"Child Abuse/Neglect/Endangerment 8 Yrs or Less (Count 1); Simple Poss (Count 2); Paraphernalia (Count 3)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Willis McKee", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_trail_46689", caseNumber:"16CC1-2020-CR-46689", defendant:"Amanda June Trail", charges:"Theft of Property >$1,000 to <$2,500 (Count 1)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"Trenena Stanley", investigator:"", analyst:"", driveLink:"", summary:"", courtDates:[{id:"cd1",date:"2026-05-20",type:"Discussion",notes:"9:00 AM session"}], todos:[], courtNotes:"", pleaStatus:"none" },
+  { id:"case_utz_50021", caseNumber:"16CC1-2025-CR-50021", defendant:"Jeffery Brandon Utz", charges:"Failure to Appear (Count 1)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"John M. Ballard", investigator:"", analyst:"", driveLink:"", summary:"One of three Utz cases. See also CR-50004 and CR-50003.", courtDates:[{id:"cd1",date:"2026-05-20",type:"Motion Hearing",notes:"1:00 PM — MOTION TO SUPPRESS. Companion cases 50004 and 50003 same time."}], todos:[{id:"t1",text:"⚑ Prep response to Motion to Suppress — Utz (all 3 cases)",done:false},{id:"t2",text:"Review stop/search facts across all 3 Utz cases",done:false}], courtNotes:"", pleaStatus:"none" },
+  { id:"case_utz_50004", caseNumber:"16CC1-2025-CR-50004", defendant:"Jeffery Brandon Utz", charges:"Meth MFG/Deliver/Sell/Poss with Intent - 26g+ (Counts 1,2); Schedule VI Drugs (Counts 3,4); Paraphernalia (Count 5)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"John M. Ballard", investigator:"", analyst:"", driveLink:"", summary:"Primary drug case — 26g+ meth. One of three Utz cases. See also CR-50021 and CR-50003.", courtDates:[{id:"cd1",date:"2026-05-20",type:"Motion Hearing",notes:"1:00 PM — MOTION TO SUPPRESS. Companion cases 50021 and 50003 same time."}], todos:[{id:"t1",text:"⚑ Prep response to Motion to Suppress — Utz (all 3 cases)",done:false},{id:"t2",text:"Coordinate with investigator on stop/search facts",done:false}], courtNotes:"", pleaStatus:"none" },
+  { id:"case_utz_50003", caseNumber:"16CC1-2025-CR-50003", defendant:"Jeffery Brandon Utz", charges:"Meth MFG/Deliver/Sell/Poss with Intent - >=0.5g (Counts 1,2); Simple Poss (Count 3); Paraphernalia (Count 4)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"John M. Ballard", investigator:"", analyst:"", driveLink:"", summary:"One of three Utz cases. See also CR-50021 and CR-50004.", courtDates:[{id:"cd1",date:"2026-05-20",type:"Motion Hearing",notes:"1:00 PM — MOTION TO SUPPRESS. Companion cases 50021 and 50004 same time."}], todos:[{id:"t1",text:"⚑ Prep response to Motion to Suppress — Utz (all 3 cases)",done:false}], courtNotes:"", pleaStatus:"none" }
+];
+
+// ─── Init ─────────────────────────────────────────────────────────────
+window.onload = () => {
+  if (typeof google !== 'undefined' && google.accounts) {
+    initGIS();
+  } else {
+    // GIS script not loaded yet, wait for it
+    const script = document.querySelector('script[src*="accounts.google.com"]');
+    if (script) script.addEventListener('load', initGIS);
+  }
+};
 </script>
-
-<script src="https://accounts.google.com/gsi/client" async defer onload="loadGIS()"></script>
 </body>
 </html>
