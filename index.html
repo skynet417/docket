@@ -96,6 +96,18 @@
 
   /* Status badges */
   .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .info-input { width:100%; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text); font-family: var(--font); font-size: 14px; padding: 4px 2px; outline: none; transition: border-color 0.15s; }
+  .info-input:focus { border-bottom-color: var(--cyan); }
+  .info-input.info-mono { font-family: var(--mono); font-size: 13px; }
+  textarea.info-input { border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; background: var(--bg1); }
+  textarea.info-input:focus { border-color: var(--cyan); }
+  .badge-select { background: transparent; border: 1px solid; border-radius: 3px; padding: 3px 8px; font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; }
+  .badge-select.badge-active { background: rgba(80,250,123,0.12); color: var(--green); border-color: rgba(80,250,123,0.3); }
+  .badge-select.badge-trial { background: rgba(189,147,249,0.12); color: var(--purple); border-color: rgba(189,147,249,0.3); }
+  .badge-select.badge-pending { background: rgba(255,184,108,0.12); color: var(--orange); border-color: rgba(255,184,108,0.3); }
+  .badge-select.badge-pled-sentencing, .badge-select.badge-pled-imposed { background: rgba(255,184,108,0.12); color: var(--orange); border-color: rgba(255,184,108,0.3); }
+  .badge-select.badge-closed { background: rgba(100,100,100,0.12); color: var(--dim); border-color: rgba(100,100,100,0.3); }
+  .badge-select option { background: var(--bg1); color: var(--text); font-size: 13px; }
   .badge-active { background: rgba(80,250,123,0.12); color: var(--green); border: 1px solid rgba(80,250,123,0.3); }
   .badge-pending { background: rgba(255,184,108,0.12); color: var(--orange); border: 1px solid rgba(255,184,108,0.3); }
   .badge-trial { background: rgba(189,147,249,0.12); color: var(--purple); border: 1px solid rgba(189,147,249,0.3); }
@@ -319,8 +331,7 @@
           <div class="detail-sub" id="det-charges"></div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="openEditCase()">✎ Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteCurrentCase()">🗑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCurrentCase()" title="Delete case">🗑</button>
         </div>
       </div>
       <div class="tabs">
@@ -697,17 +708,32 @@ function setTab(t) {
 
     el.innerHTML = `
       <div class="info-grid">
-        <div><div class="info-label">Case Number</div><div class="info-value info-mono">${c.caseNumber||'—'}</div></div>
-        <div><div class="info-label">Status</div><div class="info-value"><span class="badge badge-${c.status||'active'}">${c.status||'active'}</span></div></div>
-        <div><div class="info-label">Defendant</div><div class="info-value">${c.defendant||'—'}</div></div>
-        <div><div class="info-label">Court</div><div class="info-value">${c.court||'—'}</div></div>
-        <div class="info-span2"><div class="info-label">Charges</div><div class="info-value">${chargeLines.length>1 ? chargeLines.map(ch=>`<div style="padding:2px 0;border-bottom:1px solid var(--border)">${ch}</div>`).join('') : (c.charges||'—')}</div></div>
-        <div><div class="info-label">Lead Investigator</div><div class="info-value">${c.investigator||'—'}</div></div>
-        <div><div class="info-label">Lab / TBI Analyst</div><div class="info-value">${c.analyst||'—'}</div></div>
-        <div><div class="info-label">Defense Counsel</div><div class="info-value">${c.defenseCounsel||'—'}</div></div>
-        <div><div class="info-label">Judge</div><div class="info-value">${c.judge||'—'}</div></div>
-        <div class="info-span2"><div class="info-label">Google Drive Folder</div><div class="info-value">${c.driveLink ? `<a href="${c.driveLink}" target="_blank">Open folder ↗</a>` : '<span style="color:var(--dim)">No link yet — add via Edit</span>'}</div></div>
-        ${c.summary ? `<div class="info-span2"><div class="info-label">Summary</div><div class="info-value" style="white-space:pre-wrap">${c.summary}</div></div>` : ''}
+        <div><div class="info-label">Case Number</div><input class="info-input info-mono" value="${c.caseNumber||''}" placeholder="Case number" onchange="updateCaseField('caseNumber',this.value)"></div>
+        <div><div class="info-label">Status</div>
+          <select class="info-select badge-select badge-${c.status||'active'}" onchange="handleOverviewStatusChange(this.value,'${c.id}')">
+            <option value="active" ${(c.status||'active')==='active'?'selected':''}>Active</option>
+            <option value="pending" ${c.status==='pending'?'selected':''}>Pending</option>
+            <option value="trial" ${c.status==='trial'?'selected':''}>Trial Prep</option>
+            <option value="pled-sentencing" ${c.status==='pled-sentencing'?'selected':''}>Pled Guilty — Sentencing Hearing</option>
+            <option value="pled-imposed" ${c.status==='pled-imposed'?'selected':''}>Pled Guilty — To Be Imposed</option>
+            <option value="pled-close">Pled Guilty — Close Case</option>
+            <option value="closed" ${c.status==='closed'?'selected':''}>Closed</option>
+          </select>
+        </div>
+        <div><div class="info-label">Defendant</div><input class="info-input" value="${c.defendant||''}" placeholder="Defendant name" onchange="updateCaseField('defendant',this.value);document.getElementById('det-name').textContent=this.value"></div>
+        <div><div class="info-label">Court</div><input class="info-input" value="${c.court||''}" placeholder="Court" onchange="updateCaseField('court',this.value)"></div>
+        <div class="info-span2"><div class="info-label">Charges (separate with semicolons)</div><textarea class="info-input" rows="3" style="resize:vertical" onchange="updateCaseField('charges',this.value);document.getElementById('det-charges').textContent=this.value">${c.charges||''}</textarea></div>
+        <div><div class="info-label">Lead Investigator</div><input class="info-input" value="${c.investigator||''}" placeholder="Investigator name" onchange="updateCaseField('investigator',this.value)"></div>
+        <div><div class="info-label">Lab / TBI Analyst</div><input class="info-input" value="${c.analyst||''}" placeholder="Analyst name" onchange="updateCaseField('analyst',this.value)"></div>
+        <div><div class="info-label">Defense Counsel</div><input class="info-input" value="${c.defenseCounsel||''}" placeholder="Defense attorney" onchange="updateCaseField('defenseCounsel',this.value)"></div>
+        <div><div class="info-label">Judge</div><input class="info-input" value="${c.judge||''}" placeholder="Judge name" onchange="updateCaseField('judge',this.value)"></div>
+        <div class="info-span2"><div class="info-label">Google Drive Folder URL</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="info-input" style="flex:1" value="${c.driveLink||''}" placeholder="Paste Drive folder URL…" onchange="updateCaseField('driveLink',this.value)">
+            ${c.driveLink ? `<a href="${c.driveLink}" target="_blank" class="btn btn-secondary btn-sm">Open ↗</a>` : ''}
+          </div>
+        </div>
+        <div class="info-span2"><div class="info-label">Summary / Notes</div><textarea class="info-input" rows="2" style="resize:vertical" onchange="updateCaseField('summary',this.value)">${c.summary||''}</textarea></div>
       </div>
 
       <!-- Add Court Date -->
