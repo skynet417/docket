@@ -710,7 +710,7 @@ function setTab(t) {
       <div class="info-grid">
         <div><div class="info-label">Case Number</div><input class="info-input info-mono" value="${c.caseNumber||''}" placeholder="Case number" onchange="updateCaseField('caseNumber',this.value)"></div>
         <div><div class="info-label">Status</div>
-          <select class="info-select badge-select badge-${c.status||'active'}" onchange="handleOverviewStatusChange(this.value,'${c.id}')">
+          <select class="info-select badge-select badge-${c.status||'active'}" data-caseid="${c.id}" onchange="handleOverviewStatusChange(this.value,this.dataset.caseid)">
             <option value="active" ${(c.status||'active')==='active'?'selected':''}>Active</option>
             <option value="pending" ${c.status==='pending'?'selected':''}>Pending</option>
             <option value="trial" ${c.status==='trial'?'selected':''}>Trial Prep</option>
