@@ -437,6 +437,25 @@
 
 <div id="toast"></div>
 
+<div id="plea-modal" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title" id="plea-modal-title">Set Hearing Date</div>
+    <button class="close-btn" onclick="closeModal('plea-modal')">×</button>
+    <div class="field" style="margin-top:1rem">
+      <label>Date</label>
+      <input type="date" id="plea-modal-date" style="width:100%;cursor:pointer" onclick="this.showPicker&&this.showPicker()">
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <input type="text" id="plea-modal-notes" placeholder="e.g. 9:00 AM">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('plea-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmPleaDate()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── PDF.js setup ───────────────────────────────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1217,6 +1236,33 @@ const SEED_CASES = [
   { id:"case_utz_50003", caseNumber:"16CC1-2025-CR-50003", defendant:"Jeffery Brandon Utz", charges:"Meth MFG/Deliver/Sell/Poss with Intent - >=0.5g (Counts 1,2); Simple Poss (Count 3); Paraphernalia (Count 4)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"John M. Ballard", investigator:"", analyst:"", driveLink:"", summary:"One of three Utz cases. See also CR-50021 and CR-50004.", courtDates:[{id:"cd1",date:"2026-05-20",type:"Motion Hearing",notes:"1:00 PM — MOTION TO SUPPRESS. Companion cases 50021 and 50004 same time."}], todos:[{id:"t1",text:"⚑ Prep response to Motion to Suppress — Utz (all 3 cases)",done:false}], courtNotes:"", pleaStatus:"none" }
 ];
 
+// ─── Plea date modal ─────────────────────────────────────────────────
+function confirmPleaDate() {
+  const dateStr = document.getElementById('plea-modal-date').value;
+  const notes = document.getElementById('plea-modal-notes').value;
+  if (!dateStr) { alert('Please select a date.'); return; }
+
+  const { caseId, newStatus, label } = window._pleaPending || {};
+  const c = state.cases.find(x => x.id === caseId);
+  if (!c) return;
+
+  // Add court date
+  c.courtDates = (c.courtDates || []).concat([{
+    id: uid(),
+    date: dateStr,
+    type: label,
+    notes: notes || 'Added at plea'
+  }]);
+  c.status = newStatus;
+
+  closeModal('plea-modal');
+  saveCasesToDrive();
+  renderDetail();
+  renderUpcoming();
+  toast('Status updated — ' + label + ' set for ' + fmtDate(dateStr));
+  window._pleaPending = null;
+}
+
 // ─── Status change handler ───────────────────────────────────────────
 function handleOverviewStatusChange(newStatus, caseId) {
   const c = state.cases.find(x => x.id === caseId);
@@ -1238,22 +1284,13 @@ function handleOverviewStatusChange(newStatus, caseId) {
 
   if (newStatus === 'pled-sentencing' || newStatus === 'pled-imposed') {
     const label = newStatus === 'pled-sentencing' ? 'Sentencing Hearing' : 'Sentence Imposition';
-    const dateStr = prompt('Enter the ' + label + ' date (YYYY-MM-DD):');
-    if (!dateStr || !dateStr.match(/\d{4}-\d{2}-\d{2}/)) {
-      setTab('overview');
-      return;
-    }
-    c.courtDates = (c.courtDates || []).concat([{
-      id: uid(),
-      date: dateStr,
-      type: label,
-      notes: 'Added at plea'
-    }]);
-    c.status = newStatus;
-    saveCasesToDrive();
-    renderDetail();
-    renderUpcoming();
-    toast('Status updated — ' + label + ' set for ' + dateStr);
+    // Show calendar modal instead of prompt
+    document.getElementById('plea-modal-title').textContent = 'Set ' + label + ' Date';
+    document.getElementById('plea-modal-date').value = todayISO();
+    document.getElementById('plea-modal-notes').value = '';
+    // Store pending state
+    window._pleaPending = { caseId, newStatus, label };
+    document.getElementById('plea-modal').classList.remove('hidden');
     return;
   }
 
