@@ -721,6 +721,7 @@ function setTab(t) {
               <option>Status Hearing</option>
               <option>Suppression Hearing</option>
               <option>Sentencing</option>
+              <option>Sentence Imposition</option>
               <option>Probation Violation Continuance</option>
             </select>
           </div>
@@ -824,8 +825,9 @@ function quickAddCourtDate() {
   const notes = document.getElementById('quick-cd-notes').value;
   if (!date) return;
   c.courtDates = [...(c.courtDates||[]), { id: uid(), date, type, notes }];
-  save();
+  saveCasesToDrive();
   renderDetail();
+  renderUpcoming();
   toast(`✓ Added ${type} on ${fmtShort(date)}`);
 }
 function addCourtDate() {
