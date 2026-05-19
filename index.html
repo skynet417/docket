@@ -1092,7 +1092,7 @@ async function parseDocketWithClaude(text, filename) {
 
 For each case return a JSON array. Each object must have:
 - caseNumber: the case number (format like 16CC1-2025-CR-50000)
-- defendant: defendant full name (remove "(et. al)" if present)  
+- defendant: defendant full name(s) — if multiple defendants on one case number, list all names separated by " and "
 - charges: all charge descriptions joined with "; " (use the bold charge names, not statute numbers)
 - hearingType: one of: Discussion, Plea Hearing, Motion Hearing, Trial, Sentencing, Arraignment, Status Hearing, Probation Violation Continuance, Review Hearing
 - hearingNotes: any hearing notes text (empty string if none)
@@ -1262,6 +1262,7 @@ function confirmPleaDate() {
   toast('Status updated — ' + label + ' set for ' + fmtDate(dateStr));
   window._pleaPending = null;
 }
+
 
 // ─── Status change handler ───────────────────────────────────────────
 function handleOverviewStatusChange(newStatus, caseId) {
