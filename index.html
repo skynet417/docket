@@ -83,6 +83,26 @@
   .search-input { width: 100%; background: var(--bg1); border: 1px solid var(--border2); color: var(--text); padding: 12px 16px 12px 40px; font-family: var(--font); font-size: 15px; border-radius: 4px; outline: none; transition: border 0.15s; }
   .search-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(74,144,217,0.1); }
 
+  /* Filter bar */
+  .filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; padding: 16px 20px; background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; }
+  .filter-pill { border-radius: 50px; padding: 8px 22px; font-size: 13px; font-family: var(--font); font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; border: 2px solid transparent; letter-spacing: 0.02em; }
+  .filter-pill:hover { transform: translateY(-2px) scale(1.04); }
+  .filter-pill.active { transform: translateY(-2px) scale(1.06); }
+  .fp-all { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.55); }
+  .fp-all.active { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); color: #fff; box-shadow: 0 4px 16px rgba(255,255,255,0.12); }
+  .fp-plea { background: rgba(74,144,217,0.1); border-color: rgba(74,144,217,0.3); color: #6ab4f5; }
+  .fp-plea.active { background: rgba(74,144,217,0.25); border-color: #6ab4f5; color: #fff; box-shadow: 0 4px 18px rgba(74,144,217,0.4); }
+  .fp-sentencing { background: rgba(255,165,50,0.1); border-color: rgba(255,165,50,0.3); color: #ffaa44; }
+  .fp-sentencing.active { background: rgba(255,165,50,0.25); border-color: #ffaa44; color: #fff; box-shadow: 0 4px 18px rgba(255,165,50,0.4); }
+  .fp-imposition { background: rgba(190,80,220,0.1); border-color: rgba(190,80,220,0.3); color: #cc77ff; }
+  .fp-imposition.active { background: rgba(190,80,220,0.25); border-color: #cc77ff; color: #fff; box-shadow: 0 4px 18px rgba(190,80,220,0.4); }
+  .fp-trial { background: rgba(220,50,50,0.1); border-color: rgba(220,50,50,0.3); color: #ff6b6b; }
+  .fp-trial.active { background: rgba(220,50,50,0.25); border-color: #ff6b6b; color: #fff; box-shadow: 0 4px 18px rgba(220,50,50,0.4); }
+  .fp-hearing { background: rgba(210,180,0,0.1); border-color: rgba(210,180,0,0.3); color: #e8cc00; }
+  .fp-hearing.active { background: rgba(210,180,0,0.25); border-color: #e8cc00; color: #fff; box-shadow: 0 4px 18px rgba(210,180,0,0.4); }
+  .sort-select { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); border-radius: 50px; padding: 8px 18px; font-size: 13px; font-family: var(--font); cursor: pointer; outline: none; margin-left: auto; transition: all 0.15s; }
+  .sort-select:hover { border-color: rgba(255,255,255,0.3); color: var(--text); }
+  .sort-select option { background: #1a1a2e; }
   /* Case grid */
   .case-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
   .case-card { background: var(--bg1); border: 1px solid var(--border); border-radius: 4px; padding: 18px 20px; cursor: pointer; transition: all 0.2s; }
@@ -320,12 +340,12 @@
         <input class="search-input" type="text" id="search" placeholder="Search by defendant, case number, charges, investigator..." oninput="renderCases()">
       </div>
       <div class="filter-bar">
-        <button class="filter-pill fp-all active" id="fp-all" onclick="setCaseFilter('all')">⬤ All Cases</button>
-        <button class="filter-pill fp-plea" id="fp-plea" onclick="setCaseFilter('plea')">⬤ Plea</button>
-        <button class="filter-pill fp-sentencing" id="fp-sentencing" onclick="setCaseFilter('sentencing')">⬤ Sentencing Hearing</button>
-        <button class="filter-pill fp-imposition" id="fp-imposition" onclick="setCaseFilter('imposition')">⬤ Sentence Imposition</button>
-        <button class="filter-pill fp-trial" id="fp-trial" onclick="setCaseFilter('trial')">⬤ Trial</button>
-        <button class="filter-pill fp-hearing" id="fp-hearing" onclick="setCaseFilter('hearing')">⬤ Motion/Hearing</button>
+        <button class="filter-pill fp-all active" id="fp-all" onclick="setCaseFilter('all')">All Cases</button>
+        <button class="filter-pill fp-plea" id="fp-plea" onclick="setCaseFilter('plea')">Plea</button>
+        <button class="filter-pill fp-sentencing" id="fp-sentencing" onclick="setCaseFilter('sentencing')">Sentencing Hearing</button>
+        <button class="filter-pill fp-imposition" id="fp-imposition" onclick="setCaseFilter('imposition')">Sentence Imposition</button>
+        <button class="filter-pill fp-trial" id="fp-trial" onclick="setCaseFilter('trial')">Trial</button>
+        <button class="filter-pill fp-hearing" id="fp-hearing" onclick="setCaseFilter('hearing')">Motion / Hearing</button>
         <select class="sort-select" onchange="setCaseSort(this.value)">
           <option value="date">Sort: Upcoming date</option>
           <option value="alpha">Sort: A–Z defendant</option>
