@@ -1093,6 +1093,7 @@ async function parseDocketWithClaude(text, filename) {
 For each case return a JSON array. Each object must have:
 - caseNumber: the case number (format like 16CC1-2025-CR-50000)
 - defendant: defendant full name(s) — if multiple defendants on one case number, list all names separated by " and "
+- defenseCounsel: defense attorney name — appears after "Atty:" next to the defendant name (e.g. "Atty: Trenena Stanley" means defenseCounsel is "Trenena Stanley"). If multiple defense attorneys for co-defendants, list them all. Empty string if none listed.
 - charges: all charge descriptions joined with "; " (use the bold charge names, not statute numbers)
 - hearingType: one of: Discussion, Plea Hearing, Motion Hearing, Trial, Sentencing, Arraignment, Status Hearing, Probation Violation Continuance, Review Hearing
 - hearingNotes: any hearing notes text (empty string if none)
@@ -1185,7 +1186,7 @@ function confirmImport() {
       const c = {
         id: uid(), caseNumber: f.caseNumber, defendant: f.defendant, charges: f.charges,
         status: 'active', court: 'Coffee County Circuit Court', judge: 'Hon. Robert T. Carter',
-        defenseCounsel: '', investigator: '', analyst: '', driveLink: '', summary: '',
+        defenseCounsel: f.defenseCounsel || '', investigator: '', analyst: '', driveLink: '', summary: '',
         courtDates: [newDate],
         todos: f.isMotion ? [{ id: uid(), text: `⚑ Prep for Motion Hearing — ${fmtDate(f.docketDate)}`, done: false }] : [],
         courtNotes: '', pleaStatus: 'none'
