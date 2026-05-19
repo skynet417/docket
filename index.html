@@ -1217,6 +1217,52 @@ const SEED_CASES = [
   { id:"case_utz_50003", caseNumber:"16CC1-2025-CR-50003", defendant:"Jeffery Brandon Utz", charges:"Meth MFG/Deliver/Sell/Poss with Intent - >=0.5g (Counts 1,2); Simple Poss (Count 3); Paraphernalia (Count 4)", status:"active", court:"Coffee County Circuit Court", judge:"Hon. Robert T. Carter", defenseCounsel:"John M. Ballard", investigator:"", analyst:"", driveLink:"", summary:"One of three Utz cases. See also CR-50021 and CR-50004.", courtDates:[{id:"cd1",date:"2026-05-20",type:"Motion Hearing",notes:"1:00 PM — MOTION TO SUPPRESS. Companion cases 50021 and 50004 same time."}], todos:[{id:"t1",text:"⚑ Prep response to Motion to Suppress — Utz (all 3 cases)",done:false}], courtNotes:"", pleaStatus:"none" }
 ];
 
+// ─── Status change handler ───────────────────────────────────────────
+function handleOverviewStatusChange(newStatus, caseId) {
+  const c = state.cases.find(x => x.id === caseId);
+  if (!c) { console.error('Case not found:', caseId); return; }
+
+  if (newStatus === 'pled-close') {
+    if (!confirm('Close and remove "' + c.defendant + '" from tracking?\n\nThis cannot be undone.')) {
+      // Reset dropdown back to current status
+      setTab('overview');
+      return;
+    }
+    state.cases = state.cases.filter(x => x.id !== caseId);
+    saveCasesToDrive();
+    showView('cases');
+    renderCases();
+    toast('Case closed and removed from tracking.');
+    return;
+  }
+
+  if (newStatus === 'pled-sentencing' || newStatus === 'pled-imposed') {
+    const label = newStatus === 'pled-sentencing' ? 'Sentencing Hearing' : 'Sentence Imposition';
+    const dateStr = prompt('Enter the ' + label + ' date (YYYY-MM-DD):');
+    if (!dateStr || !dateStr.match(/\d{4}-\d{2}-\d{2}/)) {
+      setTab('overview');
+      return;
+    }
+    c.courtDates = (c.courtDates || []).concat([{
+      id: uid(),
+      date: dateStr,
+      type: label,
+      notes: 'Added at plea'
+    }]);
+    c.status = newStatus;
+    saveCasesToDrive();
+    renderDetail();
+    renderUpcoming();
+    toast('Status updated — ' + label + ' set for ' + dateStr);
+    return;
+  }
+
+  c.status = newStatus;
+  saveCasesToDrive();
+  renderDetail();
+  toast('Status updated.');
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────
 window.onload = () => {
   if (typeof google !== 'undefined' && google.accounts) {
