@@ -1380,6 +1380,26 @@ function confirmPleaDate() {
 }
 
 
+
+// ─── Auto-purge closed cases after 48 hours ──────────────────────────
+function purgeOldClosedCases() {
+  const now = Date.now();
+  const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+  const before = state.cases.length;
+  state.cases = state.cases.filter(c => {
+    if ((c.status === 'closed') && c.closedAt) {
+      const closedTime = new Date(c.closedAt).getTime();
+      return (now - closedTime) < FORTY_EIGHT_HOURS;
+    }
+    return true;
+  });
+  const purged = before - state.cases.length;
+  if (purged > 0) {
+    saveCasesToDrive();
+    console.log('Purged ' + purged + ' closed case(s) older than 48 hours.');
+  }
+}
+
 // ─── Status change handler ───────────────────────────────────────────
 function handleOverviewStatusChange(newStatus, caseId) {
   const c = state.cases.find(x => x.id === caseId);
@@ -1411,6 +1431,9 @@ function handleOverviewStatusChange(newStatus, caseId) {
     return;
   }
 
+  if (newStatus === 'closed') {
+    c.closedAt = new Date().toISOString();
+  }
   c.status = newStatus;
   saveCasesToDrive();
   renderDetail();
