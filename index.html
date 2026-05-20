@@ -1056,9 +1056,13 @@ function quickAddCourtDate() {
   // Save to Drive in background
   saveCasesToDrive();
   renderUpcoming();
-  // If in Today's view, refresh the grid so rescheduled cases vanish
+  renderCases(); // Always refresh so card shows updated next date
+
+  // If in Today's view, go back to the list so user sees the case vanish
   if (caseView === 'today') {
-    renderCases();
+    setTimeout(() => {
+      showView('cases');
+    }, 800); // brief delay so they see the toast first
   }
   toast('✓ Added ' + type + ' on ' + fmtShort(date));
 }
