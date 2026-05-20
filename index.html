@@ -1056,14 +1056,17 @@ function quickAddCourtDate() {
   // Save to Drive in background
   saveCasesToDrive();
   renderUpcoming();
-  renderCases(); // Always refresh so card shows updated next date
 
-  // If in Today's view, go back to the list so user sees the case vanish
+  // Always go back to All Cases view with updated card
   if (caseView === 'today') {
-    setTimeout(() => {
-      showView('cases');
-    }, 800); // brief delay so they see the toast first
+    caseView = 'all';
+    document.getElementById('vt-all')?.classList.add('active');
+    document.getElementById('vt-today')?.classList.remove('active');
+    const filterBar = document.querySelector('.filter-bar');
+    if (filterBar) filterBar.style.display = '';
   }
+  renderCases();
+  showView('cases');
   toast('✓ Added ' + type + ' on ' + fmtShort(date));
 }
 function addCourtDate() {
