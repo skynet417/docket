@@ -739,9 +739,10 @@ function renderCases() {
   // Filter by view (all vs today)
   let filtered = state.cases.filter(c => {
     if (caseView === 'today') {
-      // Exclude closed cases from today's view
+      // Exclude closed/pled cases from today's view
       if (c.status === 'closed' || c.status === 'pled-close') return false;
-      return (c.courtDates||[]).some(d => d.date === today);
+      // Only show if has a non-completed court date matching today
+      return (c.courtDates||[]).some(d => d.date === today && !d.completed);
     }
     return !q || [c.defendant, c.caseNumber, c.charges, c.investigator].some(f => f?.toLowerCase().includes(q));
   });
@@ -776,8 +777,8 @@ function renderCases() {
   } else {
     // Sort by next upcoming date, cases with no upcoming dates go to bottom
     filtered.sort((a, b) => {
-      const na = (a.courtDates||[]).filter(d=>d.date>=today).sort((x,y)=>x.date.localeCompare(y.date))[0];
-      const nb = (b.courtDates||[]).filter(d=>d.date>=today).sort((x,y)=>x.date.localeCompare(y.date))[0];
+      const na = (a.courtDates||[]).filter(d=>d.date>=today&&!d.completed).sort((x,y)=>x.date.localeCompare(y.date))[0];
+      const nb = (b.courtDates||[]).filter(d=>d.date>=today&&!d.completed).sort((x,y)=>x.date.localeCompare(y.date))[0];
       if (!na && !nb) return (a.defendant||'').localeCompare(b.defendant||'');
       if (!na) return 1;
       if (!nb) return -1;
@@ -785,7 +786,7 @@ function renderCases() {
     });
   }
 
-  const todayCount = state.cases.filter(c => (c.courtDates||[]).some(d => d.date === today)).length;
+  const todayCount = state.cases.filter(c => (c.courtDates||[]).some(d => d.date === today && !d.completed)).length;
   document.getElementById('case-count-label').textContent = caseView === 'today'
     ? `${filtered.length} case${filtered.length !== 1 ? 's' : ''} today`
     : `${filtered.length} of ${state.cases.length} case${state.cases.length !== 1 ? 's' : ''}${todayCount > 0 ? ' · ' + todayCount + ' today' : ''}`;
@@ -795,7 +796,7 @@ function renderCases() {
     return;
   }
   grid.innerHTML = filtered.map(c => {
-    const next = (c.courtDates||[]).filter(d => d.date >= today).sort((a,b)=>a.date.localeCompare(b.date))[0];
+    const next = (c.courtDates||[]).filter(d => d.date >= today && !d.completed).sort((a,b)=>a.date.localeCompare(b.date))[0];
     const days = next ? daysUntil(next.date) : null;
     const urgent = days !== null && days <= 7;
     return `<div class="case-card" onclick="openCase('${c.id}')">
