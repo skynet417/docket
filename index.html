@@ -737,6 +737,8 @@ function renderCases() {
   // Filter by view (all vs today)
   let filtered = state.cases.filter(c => {
     if (caseView === 'today') {
+      // Exclude closed cases from today's view
+      if (c.status === 'closed' || c.status === 'pled-close') return false;
       return (c.courtDates||[]).some(d => d.date === today);
     }
     return !q || [c.defendant, c.caseNumber, c.charges, c.investigator].some(f => f?.toLowerCase().includes(q));
@@ -993,6 +995,11 @@ function quickAddCourtDate() {
   const notes = document.getElementById('quick-cd-notes').value;
   if (!date) return;
   const newEntry = { id: uid(), date, type, notes };
+  // If coming from Today's view, remove today's court date entry (replacing it with the new one)
+  const todayStr = todayISO();
+  if (caseView === 'today') {
+    c.courtDates = (c.courtDates||[]).filter(d => d.date !== todayStr);
+  }
   c.courtDates = [...(c.courtDates||[]), newEntry];
 
   // Instantly show the new date below the form without full re-render
@@ -1025,6 +1032,10 @@ function quickAddCourtDate() {
   // Save to Drive in background
   saveCasesToDrive();
   renderUpcoming();
+  // If in Today's view, refresh the grid so rescheduled cases vanish
+  if (caseView === 'today') {
+    renderCases();
+  }
   toast('✓ Added ' + type + ' on ' + fmtShort(date));
 }
 function addCourtDate() {
