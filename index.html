@@ -1017,57 +1017,31 @@ function quickAddCourtDate() {
   const type = document.getElementById('quick-cd-type').value;
   const notes = document.getElementById('quick-cd-notes').value;
   if (!date) return;
-  const newEntry = { id: uid(), date, type, notes };
-  // Mark today's court date as completed (don't delete - preserve history)
+
+  // Mark today's court date entries as completed
   const todayStr = todayISO();
-  c.courtDates = (c.courtDates||[]).map(d => {
-    if (d.date === todayStr) return { ...d, completed: true };
-    return d;
-  });
-  c.courtDates = [...c.courtDates, newEntry];
+  c.courtDates = (c.courtDates||[]).map(d =>
+    d.date === todayStr ? { ...d, completed: true } : d
+  );
 
-  // Instantly show the new date below the form without full re-render
-  const today = todayISO();
-  const isUpcoming = date >= today;
-  const dow = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-  const days = daysUntil(date);
-  const newRow = document.createElement('div');
-  newRow.className = 'court-date-card' + (isUpcoming ? ' upcoming-flash' : '');
-  newRow.style.marginTop = '10px';
-  newRow.innerHTML = `
-    <div class="cd-date">${dow} · ${fmtDate(date)}${isUpcoming && days !== null && days <= 14 ? ' <span style="color:'+(days<=3?'var(--red)':'var(--orange)')+'">· '+(days===0?'TODAY':days+'d')+'</span>' : ''}</div>
-    <div class="cd-type">${type}</div>
-    ${notes ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">${notes}</div>` : ''}
-    <div style="font-size:11px;color:var(--green);margin-top:6px">✓ Saved — will appear on Court Dates tab</div>
-  `;
+  // Add the new court date
+  c.courtDates = [...c.courtDates, { id: uid(), date, type, notes }];
 
-  // Insert after the add court date form
-  const addForm = document.querySelector('.add-cd-form');
-  if (addForm) {
-    addForm.insertAdjacentElement('afterend', newRow);
-  }
-
-  // Clear the inputs for next entry
-  document.getElementById('quick-cd-notes').value = '';
-
-  // Update court dates tab count immediately
-  document.getElementById('tab-court').textContent = 'Court Dates (' + c.courtDates.length + ')';
-
-  // Save to Drive in background
+  // Save to Drive
   saveCasesToDrive();
-  renderUpcoming();
 
-  // Always go back to All Cases view with updated card
-  if (caseView === 'today') {
-    caseView = 'all';
-    document.getElementById('vt-all')?.classList.add('active');
-    document.getElementById('vt-today')?.classList.remove('active');
-    const filterBar = document.querySelector('.filter-bar');
-    if (filterBar) filterBar.style.display = '';
-  }
+  // Switch to All Cases view and re-render so card shows new date immediately
+  caseView = 'all';
+  document.getElementById('vt-all')?.classList.add('active');
+  document.getElementById('vt-today')?.classList.remove('active');
+  const filterBar = document.querySelector('.filter-bar');
+  if (filterBar) filterBar.style.display = '';
+
+  renderUpcoming();
   renderCases();
   showView('cases');
-  toast('✓ Added ' + type + ' on ' + fmtShort(date));
+  history.pushState({ view: 'cases' }, '', '#cases');
+  toast('✓ ' + c.defendant.split(' ').pop() + ' — ' + type + ' set for ' + fmtShort(date));
 }
 function addCourtDate() {
   const c = state.cases.find(x => x.id === state.currentCaseId);
