@@ -1183,6 +1183,34 @@ function quickAddCourtDate() {
   // Add the new court date
   c.courtDates = [...c.courtDates, { id: uid(), date, type, notes }];
 
+  // If trial date, prompt for status change and folder creation
+  if (/^trial$/i.test(type)) {
+    if (confirm('Trial set for ' + fmtDate(date) + '.\n\nSet case status to "Trial Prep"?')) {
+      c.status = 'trial';
+    }
+    saveCasesToDrive();
+    renderMiniCal();
+
+    // Switch view first
+    caseView = 'all';
+    document.getElementById('vt-all')?.classList.add('active');
+    document.getElementById('vt-today')?.classList.remove('active');
+    document.getElementById('vt-bydate')?.classList.remove('active');
+    const fb = document.querySelector('.filter-bar');
+    if (fb) fb.style.display = '';
+    renderCases();
+    showView('cases');
+    history.pushState({ view: 'cases' }, '', '#cases');
+    toast('✓ Trial set for ' + fmtShort(date));
+
+    if (!c.trialPrepLink) {
+      if (confirm('Create Trial Prep folder structure in Google Drive for ' + c.defendant + '?')) {
+        createTrialPrepFolder(c.id);
+      }
+    }
+    return;
+  }
+
   // Save to Drive
   saveCasesToDrive();
 
