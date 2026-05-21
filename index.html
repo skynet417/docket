@@ -801,14 +801,17 @@ function renderCasesByDate(today, q) {
     items.forEach(({c, d}) => {
       const urgent = /motion|suppress|sentencing|hearing/i.test(d.type);
       const days = daysUntil(d.date);
-      html += '<div class="case-card' + (urgent ? ' highlight-urgent' : '') + '" onclick="openCase('' + c.id + '')">'
-        + '<div class="case-num">' + (c.caseNumber || '') + '</div>'
-        + '<div class="case-defendant">' + (c.defendant || '') + (urgent ? '<span class="urgent-tag">⚑ ' + d.type.toUpperCase() + '</span>' : '') + '</div>'
-        + '<div class="case-charges">' + (c.charges || '') + '</div>'
-        + '<div class="case-meta">'
-        + '<span class="badge badge-' + (c.status||'active') + '">' + (c.status||'active') + '</span>'
-        + '<span class="case-next' + (urgent ? ' case-next-urgent' : '') + '">' + d.type + ' · ' + fmtShort(d.date) + (days !== null && days <= 14 ? ' (' + days + 'd)' : '') + '</span>'
-        + '</div></div>';
+      const cardClass = 'case-card' + (urgent ? ' highlight-urgent' : '');
+      const urgentTag = urgent ? `<span class="urgent-tag">⚑ ${d.type.toUpperCase()}</span>` : '';
+      const nextLabel = d.type + ' · ' + fmtShort(d.date) + (days !== null && days <= 14 ? ' (' + days + 'd)' : '');
+      html += `<div class="${cardClass}" onclick="openCase('${c.id}')">`
+        + `<div class="case-num">${c.caseNumber||''}</div>`
+        + `<div class="case-defendant">${c.defendant||''}${urgentTag}</div>`
+        + `<div class="case-charges">${c.charges||''}</div>`
+        + `<div class="case-meta">`
+        + `<span class="badge badge-${c.status||'active'}">${c.status||'active'}</span>`
+        + `<span class="case-next${urgent?' case-next-urgent':''}">${nextLabel}</span>`
+        + `</div></div>`;
     });
   });
 
