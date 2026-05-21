@@ -895,16 +895,19 @@ function renderCases() {
   grid.innerHTML = filtered.map(c => {
     const next = (c.courtDates||[]).filter(d => d.date >= today && !d.completed).sort((a,b)=>a.date.localeCompare(b.date))[0];
     const days = next ? daysUntil(next.date) : null;
-    const urgent = days !== null && days <= 7;
-    return `<div class="case-card" onclick="openCase('${c.id}')">
-      <div class="case-num">${c.caseNumber || 'No case number'}</div>
-      <div class="case-defendant">${c.defendant || 'Unnamed'}</div>
-      <div class="case-charges">${c.charges || 'No charges listed'}</div>
-      <div class="case-meta">
-        <span class="badge badge-${c.status||'active'}">${c.status||'active'}</span>
-        ${next ? `<span class="case-next${urgent?' case-next-urgent':''}">${next.type} · ${fmtShort(next.date)}${days!==null&&days>=0&&days<=14?' ('+days+'d)':''}</span>` : ''}
-      </div>
-    </div>`;
+    const isTrial = next && /^trial$/i.test(next.type);
+    const isUrgent = next && /suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i.test(next.type) && !/status|review|probation|discussion/i.test(next.type);
+    const cardClass = 'case-card' + (isTrial ? ' highlight-trial' : isUrgent ? ' highlight-urgent' : '');
+    const urgentTag = isTrial ? '<span class="trial-tag">&#9876; TRIAL</span>'
+                   : isUrgent ? '<span class="urgent-tag">&#9876; ' + (next.type).toUpperCase() + '</span>' : '';
+    return '<div class="' + cardClass + '" onclick="openCase('' + c.id + '')">'
+      + '<div class="case-num">' + (c.caseNumber || 'No case number') + '</div>'
+      + '<div class="case-defendant">' + (c.defendant || 'Unnamed') + urgentTag + '</div>'
+      + '<div class="case-charges">' + (c.charges || 'No charges listed') + '</div>'
+      + '<div class="case-meta">'
+      + '<span class="badge badge-' + (c.status||'active') + '">' + (c.status||'active') + '</span>'
+      + (next ? '<span class="case-next' + (isTrial||isUrgent?' case-next-urgent':'') + '">' + next.type + ' · ' + fmtShort(next.date) + (days!==null&&days>=0&&days<=14?' ('+days+'d)':'') + '</span>' : '')
+      + '</div></div>';
   }).join('');
 }
 
