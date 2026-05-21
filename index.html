@@ -744,7 +744,7 @@ function isUrgentHearing(c) {
   const today = todayISO();
   return (c.courtDates||[]).some(d =>
     d.date >= today && !d.completed &&
-    /motion|suppress|sentencing|hearing/i.test(d.type)
+    /motion|suppress|sentencing hearing|plea hearing/i.test(d.type) && !/status|review|probation/i.test(d.type)
   );
 }
 
