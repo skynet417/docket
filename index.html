@@ -747,7 +747,7 @@ function isUrgentHearing(c) {
   const today = todayISO();
   return (c.courtDates||[]).some(d =>
     d.date >= today && !d.completed &&
-    /motion|suppress|sentencing hearing|plea hearing|^trial$/i.test(d.type) && !/status|review|probation/i.test(d.type)
+    (/suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i.test(d.type) || /^trial$/i.test(d.type)) && !/status|review|probation|discussion|arraignment/i.test(d.type)
   );
 }
 
@@ -802,7 +802,7 @@ function renderCasesByDate(today, q) {
     html += '<div class="date-group-header">' + label + daysLabel + '<span class="dg-count">' + items.length + ' case' + (items.length !== 1 ? 's' : '') + '</span></div>';
 
     items.forEach(({c, d}) => {
-      const urgent = /motion|suppress|sentencing|hearing/i.test(d.type);
+      const urgent = /suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i.test(d.type) && !/status|review|probation|discussion/i.test(d.type);
       const days = daysUntil(d.date);
       const isTrial = /^trial$/i.test(d.type);
       const cardClass = 'case-card' + (isTrial ? ' highlight-trial' : urgent ? ' highlight-urgent' : '');
