@@ -347,9 +347,17 @@
         <span class="nav-icon">📅</span> Calendar
       </button>
     </nav>
-    <div class="sidebar-section">
-      <div class="sidebar-label">Upcoming</div>
-      <div id="upcoming-list"></div>
+
+    <div style="padding:12px 16px;border-top:1px solid var(--border)">
+      <a href="https://drive.google.com/drive/folders/1EZHdDcIiVQlZ-bPMf3F1NTrZjwAjOKMW" target="_blank"
+         style="display:flex;align-items:center;gap:8px;background:rgba(74,144,217,0.08);border:1px solid rgba(74,144,217,0.25);border-radius:6px;padding:9px 12px;text-decoration:none;transition:all 0.15s"
+         onmouseover="this.style.background='rgba(74,144,217,0.16)'" onmouseout="this.style.background='rgba(74,144,217,0.08)'">
+        <span style="font-size:16px">📁</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--cyan)">Trial Prep Folder</div>
+          <div style="font-size:10px;color:var(--dim);margin-top:1px">Google Drive ↗</div>
+        </div>
+      </a>
     </div>
     <div class="mini-cal" id="mini-cal-wrap">
       <div class="mini-cal-header">
@@ -692,7 +700,6 @@ function showView(v, pushState=true) {
   }
   if (v === 'cases') renderCases();
   if (v === 'calendar') renderCalendar();
-  renderUpcoming();
 }
 
 // Handle browser back/forward
@@ -957,7 +964,6 @@ function renderDetail() {
   document.getElementById('tab-court').textContent = `Court Dates (${(c.courtDates||[]).length})`;
   document.getElementById('tab-todos').textContent = `To-Do (${(c.todos||[]).filter(t=>!t.done).length})`;
   setTab(currentTab);
-  renderUpcoming();
 }
 function setTab(t) {
   currentTab = t;
@@ -1168,7 +1174,6 @@ function quickAddCourtDate() {
   const filterBar = document.querySelector('.filter-bar');
   if (filterBar) filterBar.style.display = '';
 
-  renderUpcoming();
   renderCases();
   showView('cases');
   history.pushState({ view: 'cases' }, '', '#cases');
@@ -1280,7 +1285,6 @@ function saveCase() {
   save();
   closeModal('case-modal');
   if (editingCaseId) renderDetail(); else renderCases();
-  renderUpcoming();
 }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
@@ -1491,7 +1495,6 @@ function confirmImport() {
   save();
   closeModal('upload-modal');
   renderCases();
-  renderUpcoming();
   toast(`✓ Imported: ${added} new case${added!==1?'s':''}, ${updated} date${updated!==1?'s':''} updated`);
 }
 
@@ -1552,7 +1555,6 @@ function confirmPleaDate() {
   closeModal('plea-modal');
   saveCasesToDrive();
   renderDetail();
-  renderUpcoming();
   toast('Status updated — ' + label + ' set for ' + fmtDate(dateStr));
   window._pleaPending = null;
 }
