@@ -1624,7 +1624,7 @@ function renderMiniCal() {
     if (isToday) cls += ' today';
     else if (caseType === 'urgent') cls += ' has-case has-urgent';
     else if (caseType === 'normal') cls += ' has-case';
-    html += '<div class="' + cls + '" onclick="miniCalDayClick('' + dateStr + '')" title="' + dateStr + '">' + d + '</div>';
+    html += `<div class="${cls}" onclick="miniCalDayClick('${dateStr}')" title="${dateStr}">${d}</div>`;
   }
 
   // Next month fill
