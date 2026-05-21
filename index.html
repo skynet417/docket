@@ -1203,17 +1203,9 @@ function quickAddCourtDate() {
     history.pushState({ view: 'cases' }, '', '#cases');
     toast('✓ Trial set for ' + fmtShort(date));
 
-    // Auto-create trial prep folder if it doesn't exist yet
+    // Auto-create trial prep folder BEFORE switching views (same context as manual button)
     if (!c.trialPrepLink) {
-      const cid = c.id;
-      // Use longer delay to ensure view has settled, and store globally
-      window._pendingTrialFolder = cid;
-      setTimeout(() => {
-        if (window._pendingTrialFolder) {
-          createTrialPrepFolder(window._pendingTrialFolder);
-          window._pendingTrialFolder = null;
-        }
-      }, 800);
+      createTrialPrepFolder(c.id);
     }
     return;
   }
