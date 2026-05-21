@@ -928,13 +928,14 @@ function renderCases() {
     const cardClass = 'case-card' + (isTrial ? ' highlight-trial' : isUrgent ? ' highlight-urgent' : '');
     const urgentTag = isTrial ? '<span class="trial-tag">&#9876; TRIAL</span>'
                    : isUrgent ? '<span class="urgent-tag">&#9876; ' + (next.type).toUpperCase() + '</span>' : '';
-    return '<div class="' + cardClass + '" onclick="openCase('' + c.id + '')">'
-      + '<div class="case-num">' + (c.caseNumber || 'No case number') + '</div>'
-      + '<div class="case-defendant">' + (c.defendant || 'Unnamed') + urgentTag + '</div>'
-      + '<div class="case-charges">' + (c.charges || 'No charges listed') + '</div>'
-      + '<div class="case-meta">'
-      + '<span class="badge badge-' + (c.status||'active') + '">' + (c.status||'active') + '</span>'
-      + (next ? '<span class="case-next' + (isTrial||isUrgent?' case-next-urgent':'') + '">' + next.type + ' · ' + fmtShort(next.date) + (days!==null&&days>=0&&days<=14?' ('+days+'d)':'') + '</span>' : '')
+    const cid = c.id;
+    return `<div class="${cardClass}" onclick="openCase('${cid}')">`
+      + `<div class="case-num">${c.caseNumber || 'No case number'}</div>`
+      + `<div class="case-defendant">${c.defendant || 'Unnamed'}${urgentTag}</div>`
+      + `<div class="case-charges">${c.charges || 'No charges listed'}</div>`
+      + `<div class="case-meta">`
+      + `<span class="badge badge-${c.status||'active'}">${c.status||'active'}</span>`
+      + (next ? `<span class="case-next${(isTrial||isUrgent)?' case-next-urgent':''}">${next.type} · ${fmtShort(next.date)}${(days!==null&&days>=0&&days<=14)?' ('+days+'d)':''}</span>` : '')
       + '</div></div>';
   }).join('');
 }
