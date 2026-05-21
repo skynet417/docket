@@ -92,7 +92,10 @@
   .date-group-header .dg-count { font-size: 11px; color: var(--dim); font-weight: 400; }
   .case-card.highlight-urgent { border: 2px solid var(--orange); box-shadow: 0 0 12px rgba(255,165,50,0.2); }
   .case-card.highlight-urgent .case-defendant { color: #ffcc66; }
+  .case-card.highlight-trial { border: 2px solid var(--red); box-shadow: 0 0 16px rgba(220,50,50,0.3); }
+  .case-card.highlight-trial .case-defendant { color: #ff8080; }
   .urgent-tag { display: inline-block; background: rgba(255,165,50,0.15); color: var(--orange); border: 1px solid rgba(255,165,50,0.4); border-radius: 4px; font-size: 10px; font-family: var(--mono); font-weight: 700; padding: 2px 7px; margin-left: 8px; vertical-align: middle; letter-spacing: 0.05em; }
+  .trial-tag { display: inline-block; background: rgba(220,50,50,0.15); color: var(--red); border: 1px solid rgba(220,50,50,0.4); border-radius: 4px; font-size: 10px; font-family: var(--mono); font-weight: 700; padding: 2px 7px; margin-left: 8px; vertical-align: middle; letter-spacing: 0.05em; }
   @keyframes flashIn { 0%{opacity:0;transform:translateY(-8px)} 100%{opacity:1;transform:translateY(0)} }
   .upcoming-flash { animation: flashIn 0.3s ease forwards; border-left: 3px solid var(--cyan); }
   .completed-hearing { opacity: 0.75; border-left: 3px solid var(--green); }
@@ -744,7 +747,7 @@ function isUrgentHearing(c) {
   const today = todayISO();
   return (c.courtDates||[]).some(d =>
     d.date >= today && !d.completed &&
-    /motion|suppress|sentencing hearing|plea hearing/i.test(d.type) && !/status|review|probation/i.test(d.type)
+    /motion|suppress|sentencing hearing|plea hearing|^trial$/i.test(d.type) && !/status|review|probation/i.test(d.type)
   );
 }
 
@@ -801,8 +804,10 @@ function renderCasesByDate(today, q) {
     items.forEach(({c, d}) => {
       const urgent = /motion|suppress|sentencing|hearing/i.test(d.type);
       const days = daysUntil(d.date);
-      const cardClass = 'case-card' + (urgent ? ' highlight-urgent' : '');
-      const urgentTag = urgent ? `<span class="urgent-tag">⚑ ${d.type.toUpperCase()}</span>` : '';
+      const isTrial = /^trial$/i.test(d.type);
+      const cardClass = 'case-card' + (isTrial ? ' highlight-trial' : urgent ? ' highlight-urgent' : '');
+      const urgentTag = isTrial ? `<span class="trial-tag">⚑ TRIAL</span>`
+                      : urgent ? `<span class="urgent-tag">⚑ ${d.type.toUpperCase()}</span>` : '';
       const nextLabel = d.type + ' · ' + fmtShort(d.date) + (days !== null && days <= 14 ? ' (' + days + 'd)' : '');
       html += `<div class="${cardClass}" onclick="openCase('${c.id}')">`
         + `<div class="case-num">${c.caseNumber||''}</div>`
