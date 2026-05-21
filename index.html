@@ -1203,10 +1203,10 @@ function quickAddCourtDate() {
     history.pushState({ view: 'cases' }, '', '#cases');
     toast('✓ Trial set for ' + fmtShort(date));
 
+    // Auto-create trial prep folder if it doesn't exist yet
     if (!c.trialPrepLink) {
-      if (confirm('Create Trial Prep folder structure in Google Drive for ' + c.defendant + '?')) {
-        createTrialPrepFolder(c.id);
-      }
+      const cid = c.id;
+      setTimeout(() => createTrialPrepFolder(cid), 300);
     }
     return;
   }
@@ -1671,11 +1671,9 @@ async function createTrialPrepFolder(caseId) {
 
   if (!accessToken) { toast('Please sign in first.'); return; }
 
-  // Check if already has a trial prep link
+  // Already has a folder — just open it silently
   if (c.trialPrepLink) {
-    if (confirm('This case already has a Trial Prep folder. Open it?')) {
-      window.open(c.trialPrepLink, '_blank');
-    }
+    window.open(c.trialPrepLink, '_blank');
     return;
   }
 
