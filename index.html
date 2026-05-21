@@ -1206,7 +1206,14 @@ function quickAddCourtDate() {
     // Auto-create trial prep folder if it doesn't exist yet
     if (!c.trialPrepLink) {
       const cid = c.id;
-      setTimeout(() => createTrialPrepFolder(cid), 300);
+      // Use longer delay to ensure view has settled, and store globally
+      window._pendingTrialFolder = cid;
+      setTimeout(() => {
+        if (window._pendingTrialFolder) {
+          createTrialPrepFolder(window._pendingTrialFolder);
+          window._pendingTrialFolder = null;
+        }
+      }, 800);
     }
     return;
   }
@@ -1667,37 +1674,39 @@ async function createDriveFolder(name, parentId) {
 
 async function createTrialPrepFolder(caseId) {
   const c = state.cases.find(x => x.id === caseId);
-  if (!c) return;
+  if (!c) { console.error('Case not found:', caseId); return; }
 
-  if (!accessToken) { toast('Please sign in first.'); return; }
+  if (!accessToken) { alert('Not signed in — please refresh and sign in again.'); return; }
 
-  // Already has a folder — just open it silently
+  // Already has a folder — just open it
   if (c.trialPrepLink) {
     window.open(c.trialPrepLink, '_blank');
     return;
   }
 
-  toast('Creating Trial Prep folder...');
+  toast('Creating Trial Prep folder in Drive...');
+  console.log('Creating folder for', c.defendant, 'in parent', TRIAL_PREP_FOLDER_ID);
 
   try {
-    // Create main case folder inside Trial Prep
     const folderName = 'State v. ' + c.defendant + ' — ' + c.caseNumber;
     const mainFolder = await createDriveFolder(folderName, TRIAL_PREP_FOLDER_ID);
+    console.log('Main folder created:', mainFolder.id);
 
-    // Create all subfolders
     for (const sub of TRIAL_SUBFOLDERS) {
       await createDriveFolder(sub, mainFolder.id);
+      console.log('Subfolder created:', sub);
     }
 
-    // Save the link to the case
     c.trialPrepLink = 'https://drive.google.com/drive/folders/' + mainFolder.id;
     saveCasesToDrive();
-    renderDetail();
-    toast('✓ Trial Prep folder created!');
+    if (state.currentCaseId === caseId) renderDetail();
+    toast('✓ Trial Prep folder created for ' + c.defendant + '!');
+    // Open it right away
+    window.open(c.trialPrepLink, '_blank');
 
   } catch(e) {
-    toast('❌ Error creating folder: ' + e.message);
-    console.error(e);
+    console.error('Folder creation error:', e);
+    alert('Error creating folder: ' + e.message + '\n\nCheck the browser console for details.');
   }
 }
 
