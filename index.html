@@ -404,8 +404,8 @@
         <button class="filter-pill fp-hearing" id="fp-hearing" onclick="setCaseFilter('hearing')">Motion / Hearing</button>
         <button class="filter-pill fp-trial" id="fp-trial" onclick="setCaseFilter('trial')">Trial</button>
         <select class="sort-select" onchange="setCaseSort(this.value)">
+          <option value="alpha">Sort: A–Z (last name)</option>
           <option value="date">Sort: Upcoming date</option>
-          <option value="alpha">Sort: A–Z defendant</option>
         </select>
       </div>
       <div class="case-grid" id="case-grid"></div>
@@ -561,7 +561,7 @@ let tokenClient, accessToken = null, casesFileId = null, saveTimer = null;
 // ─── State ──────────────────────────────────────────────────────────
 let state = { cases: [], currentView: 'cases', currentCaseId: null, calYear: new Date().getFullYear(), calMonth: new Date().getMonth() };
 let editingCaseId = null;
-let caseSort = 'date'; // 'date' | 'alpha'
+let caseSort = 'alpha'; // 'alpha' | 'date'
 let caseView = 'all'; // 'all' | 'today' | 'bydate'
 let caseFilter = 'all'; // 'all' | 'plea' | 'sentencing' | 'imposition' | 'trial' | 'hearing'
 let pendingImports = [];
@@ -766,6 +766,16 @@ function setCaseView(v) {
   renderCases();
 }
 
+
+function lastName(fullName) {
+  if (!fullName) return '';
+  // Handle "et. al" and parentheticals
+  const clean = fullName.replace(/\s*\(et\.?\s*al\.?\)/i, '').trim();
+  // Split on space, take last word
+  const parts = clean.split(/\s+/);
+  return parts[parts.length - 1].toUpperCase();
+}
+
 function setCaseFilter(f) {
   caseFilter = f;
   ['all','plea','sentencing','imposition','trial','hearing'].forEach(k => {
@@ -806,7 +816,7 @@ function renderCasesByDate(today, q) {
     : entries;
 
   // Sort by date
-  filtered.sort((a, b) => a.d.date.localeCompare(b.d.date) || (a.c.defendant||'').localeCompare(b.c.defendant||''));
+  filtered.sort((a, b) => a.d.date.localeCompare(b.d.date) || lastName(a.c.defendant).localeCompare(lastName(b.c.defendant)));
 
   // Group by date
   const groups = {};
@@ -907,7 +917,7 @@ function renderCases() {
 
   // Sort
   if (caseSort === 'alpha') {
-    filtered.sort((a, b) => (a.defendant||'').localeCompare(b.defendant||''));
+    filtered.sort((a, b) => lastName(a.defendant).localeCompare(lastName(b.defendant)) || (a.defendant||'').localeCompare(b.defendant||''));
   } else {
     // Sort by next upcoming date, cases with no upcoming dates go to bottom
     filtered.sort((a, b) => {
