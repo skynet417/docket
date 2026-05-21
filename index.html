@@ -894,12 +894,12 @@ function renderCases() {
       sentencing: /^sentencing$/i,
       imposition: /sentence imposition/i,
       trial: /^trial$/i,
-      hearing: /motion|hearing|suppression/i
+      hearing: /suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i
     };
     const rx = typeMap[caseFilter];
     if (rx) {
       filtered = filtered.filter(c =>
-        (c.courtDates||[]).some(d => rx.test(d.type))
+        (c.courtDates||[]).some(d => rx.test(d.type) && !/status|review|probation|discussion/i.test(d.type))
       );
     }
   }
