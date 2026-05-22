@@ -406,7 +406,8 @@
         <input class="search-input" type="text" id="search" placeholder="Search by defendant, case number, charges, investigator..." oninput="renderCases()">
       </div>
       <div class="filter-bar">
-        <button class="filter-pill fp-all active" id="fp-all" onclick="setCaseFilter('all')">Active Cases</button>
+        <button class="filter-pill fp-all" id="fp-all" onclick="setCaseFilter('all')">All Cases</button>
+        <button class="filter-pill fp-all active" id="fp-active" onclick="setCaseFilter('active')">Active Cases</button>
         <button class="filter-pill fp-plea" id="fp-plea" onclick="setCaseFilter('plea')">Plea</button>
         <button class="filter-pill fp-sentencing" id="fp-sentencing" onclick="setCaseFilter('sentencing')">Sentencing Hearing</button>
         <button class="filter-pill fp-imposition" id="fp-imposition" onclick="setCaseFilter('imposition')">Sentence Imposition</button>
@@ -573,7 +574,7 @@ let state = { cases: [], currentView: 'cases', currentCaseId: null, calYear: new
 let editingCaseId = null;
 let caseSort = 'alpha'; // 'alpha' | 'date'
 let caseView = 'all'; // 'all' | 'today' | 'bydate'
-let caseFilter = 'active'; // 'all' | 'active' | 'plea' | 'sentencing' | 'imposition' | 'trial' | 'hearing'
+let caseFilter = 'active'; // 'all'|'active'|'plea'|'sentencing'|'imposition'|'trial'|'hearing'
 let pendingImports = [];
 
 // ─── Auth ────────────────────────────────────────────────────────────
@@ -796,7 +797,7 @@ function lastName(fullName) {
 
 function setCaseFilter(f) {
   caseFilter = f;
-  ['all','plea','sentencing','imposition','trial','hearing','forfeiture','active'].forEach(k => {
+  ['all','active','plea','sentencing','imposition','trial','hearing','forfeiture'].forEach(k => {
     const el = document.getElementById('fp-'+k);
     if (el) el.classList.toggle('active', k === f);
   });
@@ -917,7 +918,11 @@ function renderCases() {
   }
 
   // Filter by hearing type
-  if (caseFilter !== 'all') {
+  if (caseFilter === 'active') {
+    filtered = filtered.filter(c => c.status !== 'closed' && c.status !== 'pled-close' && c.status !== 'forfeiture' && !c.archived);
+  }
+
+  if (caseFilter !== 'all' && caseFilter !== 'active') {
     const typeMap = {
       plea: /plea/i,
       sentencing: /^sentencing$/i,
@@ -943,16 +948,11 @@ function renderCases() {
       }).join('') : '<div class="empty" style="grid-column:1/-1"><div class="empty-title">No forfeiture cases</div></div>';
       return;
     }
-    if (caseFilter === 'active') {
-      filtered = filtered.filter(c => c.status !== 'closed' && c.status !== 'pled-close' && c.status !== 'forfeiture' && !c.archived);
-      // fall through to sort & render normally
-    } else {
-      const rx = typeMap[caseFilter];
-      if (rx) {
-        filtered = filtered.filter(c =>
-          (c.courtDates||[]).some(d => rx.test(d.type) && !/status|review|probation|discussion/i.test(d.type))
-        );
-      }
+    const rx = typeMap[caseFilter];
+    if (rx) {
+      filtered = filtered.filter(c =>
+        (c.courtDates||[]).some(d => rx.test(d.type) && !/status|review|probation|discussion/i.test(d.type))
+      );
     }
   }
 
