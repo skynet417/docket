@@ -93,6 +93,10 @@
   .date-group-header .dg-count { font-size: 13px; color: var(--dim); font-weight: 500; white-space: nowrap; }
   .case-card.highlight-urgent { border: 2px solid var(--orange); box-shadow: 0 0 12px rgba(255,165,50,0.2); }
   .case-card.highlight-urgent .case-defendant { color: #ffcc66; }
+  .case-card.needs-update { border: 2px solid #ff6b6b; box-shadow: 0 0 14px rgba(255,50,50,0.18); background: rgba(255,50,50,0.04); }
+  .case-card.needs-update .case-num { color: #ff9999; }
+  .needs-update-tag { display: inline-block; background: rgba(255,50,50,0.15); color: #ff6b6b; border: 1px solid rgba(255,50,50,0.4); border-radius: 4px; font-size: 10px; font-family: var(--mono); font-weight: 700; padding: 2px 7px; margin-left: 8px; vertical-align: middle; letter-spacing: 0.05em; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
   .case-card.highlight-trial { border: 2px solid var(--red); box-shadow: 0 0 16px rgba(220,50,50,0.3); }
   .case-card.highlight-trial .case-defendant { color: #ff8080; }
   .urgent-tag { display: inline-block; background: rgba(255,165,50,0.15); color: var(--orange); border: 1px solid rgba(255,165,50,0.4); border-radius: 4px; font-size: 10px; font-family: var(--mono); font-weight: 700; padding: 2px 7px; margin-left: 8px; vertical-align: middle; letter-spacing: 0.05em; }
@@ -767,6 +771,14 @@ function setCaseView(v) {
 }
 
 
+
+function needsDateUpdate(c) {
+  if (c.status === 'closed' || c.status === 'pled-close') return false;
+  const today = todayISO();
+  const upcoming = (c.courtDates||[]).filter(d => d.date >= today && !d.completed);
+  return upcoming.length === 0;
+}
+
 function lastName(fullName) {
   if (!fullName) return '';
   // Handle "et. al" and parentheticals
@@ -915,15 +927,23 @@ function renderCases() {
     }
   }
 
-  // Sort
+  // Sort — always put needs-update cases at top first
   if (caseSort === 'alpha') {
-    filtered.sort((a, b) => lastName(a.defendant).localeCompare(lastName(b.defendant)) || (a.defendant||'').localeCompare(b.defendant||''));
+    filtered.sort((a, b) => {
+      const aNeed = needsDateUpdate(a) ? 0 : 1;
+      const bNeed = needsDateUpdate(b) ? 0 : 1;
+      if (aNeed !== bNeed) return aNeed - bNeed;
+      return lastName(a.defendant).localeCompare(lastName(b.defendant)) || (a.defendant||'').localeCompare(b.defendant||'');
+    });
   } else {
     // Sort by next upcoming date, cases with no upcoming dates go to bottom
     filtered.sort((a, b) => {
       const na = (a.courtDates||[]).filter(d=>d.date>=today&&!d.completed).sort((x,y)=>x.date.localeCompare(y.date))[0];
       const nb = (b.courtDates||[]).filter(d=>d.date>=today&&!d.completed).sort((x,y)=>x.date.localeCompare(y.date))[0];
-      if (!na && !nb) return (a.defendant||'').localeCompare(b.defendant||'');
+      const aNeed = needsDateUpdate(a) ? 0 : 1;
+      const bNeed = needsDateUpdate(b) ? 0 : 1;
+      if (aNeed !== bNeed) return aNeed - bNeed;
+      if (!na && !nb) return lastName(a.defendant).localeCompare(lastName(b.defendant));
       if (!na) return 1;
       if (!nb) return -1;
       return na.date.localeCompare(nb.date);
@@ -944,8 +964,10 @@ function renderCases() {
     const days = next ? daysUntil(next.date) : null;
     const isTrial = next && /^trial$/i.test(next.type);
     const isUrgent = next && /suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i.test(next.type) && !/status|review|probation|discussion/i.test(next.type);
-    const cardClass = 'case-card' + (isTrial ? ' highlight-trial' : isUrgent ? ' highlight-urgent' : '');
-    const urgentTag = isTrial ? '<span class="trial-tag">&#9876; TRIAL</span>'
+    const needsUpdate = needsDateUpdate(c);
+    const cardClass = 'case-card' + (needsUpdate ? ' needs-update' : isTrial ? ' highlight-trial' : isUrgent ? ' highlight-urgent' : '');
+    const urgentTag = needsUpdate ? '<span class="needs-update-tag">⚠ NEEDS DATE</span>'
+                   : isTrial ? '<span class="trial-tag">&#9876; TRIAL</span>'
                    : isUrgent ? '<span class="urgent-tag">&#9876; ' + (next.type).toUpperCase() + '</span>' : '';
     const cid = c.id;
     return `<div class="${cardClass}" onclick="openCase('${cid}')">`
