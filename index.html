@@ -137,6 +137,8 @@
   .fp-sentencing.active { background: rgba(255,165,50,0.25); border-color: #ffaa44; color: #fff; box-shadow: 0 4px 18px rgba(255,165,50,0.4); }
   .fp-imposition { background: rgba(190,80,220,0.1); border-color: rgba(190,80,220,0.3); color: #cc77ff; }
   .fp-imposition.active { background: rgba(190,80,220,0.25); border-color: #cc77ff; color: #fff; box-shadow: 0 4px 18px rgba(190,80,220,0.4); }
+  .fp-forfeiture { background: rgba(150,50,220,0.1); border-color: rgba(150,50,220,0.3); color: #bb77ff; }
+  .fp-forfeiture.active { background: rgba(150,50,220,0.25); border-color: #bb77ff; color: #fff; box-shadow: 0 4px 18px rgba(150,50,220,0.4); }
   .fp-trial { background: rgba(220,50,50,0.1); border-color: rgba(220,50,50,0.3); color: #ff6b6b; }
   .fp-trial.active { background: rgba(220,50,50,0.25); border-color: #ff6b6b; color: #fff; box-shadow: 0 4px 18px rgba(220,50,50,0.4); }
   .fp-hearing { background: rgba(210,180,0,0.1); border-color: rgba(210,180,0,0.3); color: #e8cc00; }
@@ -170,6 +172,7 @@
   .badge-select.badge-closed { background: rgba(100,100,100,0.12); color: var(--dim); border-color: rgba(100,100,100,0.3); }
   .badge-select option { background: var(--bg1); color: var(--text); font-size: 13px; }
   .badge-active { background: rgba(80,250,123,0.12); color: var(--green); border: 1px solid rgba(80,250,123,0.3); }
+  .badge-forfeiture { background: rgba(255,50,50,0.12); color: #ff6b6b; border: 1px solid rgba(255,50,50,0.3); }
   .badge-pending { background: rgba(255,184,108,0.12); color: var(--orange); border: 1px solid rgba(255,184,108,0.3); }
   .badge-trial { background: rgba(189,147,249,0.12); color: var(--purple); border: 1px solid rgba(189,147,249,0.3); }
   .badge-pled-close { background: rgba(80,250,123,0.08); color: #50fa7b; border: 1px solid rgba(80,250,123,0.2); }
@@ -409,6 +412,7 @@
         <button class="filter-pill fp-imposition" id="fp-imposition" onclick="setCaseFilter('imposition')">Sentence Imposition</button>
         <button class="filter-pill fp-hearing" id="fp-hearing" onclick="setCaseFilter('hearing')">Motion / Hearing</button>
         <button class="filter-pill fp-trial" id="fp-trial" onclick="setCaseFilter('trial')">Trial</button>
+        <button class="filter-pill fp-forfeiture" id="fp-forfeiture" onclick="setCaseFilter('forfeiture')">Forfeiture Status</button>
         <select class="sort-select" onchange="setCaseSort(this.value)">
           <option value="alpha">Sort: A–Z (last name)</option>
           <option value="date">Sort: Upcoming date</option>
@@ -775,7 +779,7 @@ function setCaseView(v) {
 
 
 function needsDateUpdate(c) {
-  if (c.status === 'closed' || c.status === 'pled-close') return false;
+  if (c.status === 'closed' || c.status === 'pled-close' || c.status === 'forfeiture') return false;
   const today = todayISO();
   const upcoming = (c.courtDates||[]).filter(d => d.date >= today && !d.completed);
   return upcoming.length === 0;
@@ -792,7 +796,7 @@ function lastName(fullName) {
 
 function setCaseFilter(f) {
   caseFilter = f;
-  ['all','plea','sentencing','imposition','trial','hearing'].forEach(k => {
+  ['all','plea','sentencing','imposition','trial','hearing','forfeiture'].forEach(k => {
     const el = document.getElementById('fp-'+k);
     if (el) el.classList.toggle('active', k === f);
   });
@@ -921,6 +925,24 @@ function renderCases() {
       trial: /^trial$/i,
       hearing: /suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i
     };
+    // Forfeiture filter by status
+    if (caseFilter === 'forfeiture') {
+      filtered = filtered.filter(c => c.status === 'forfeiture');
+      document.getElementById('case-count-label').textContent = filtered.length + ' forfeiture case' + (filtered.length !== 1 ? 's' : '');
+      const grid = document.getElementById('case-grid');
+      grid.innerHTML = filtered.length ? filtered.map(c => {
+        const next = (c.courtDates||[]).filter(d => d.date >= today && !d.completed).sort((a,b)=>a.date.localeCompare(b.date))[0];
+        const days = next ? daysUntil(next.date) : null;
+        return '<div class="case-card" style="border:2px solid #bb77ff;box-shadow:0 0 12px rgba(150,50,220,0.2)" onclick="openCase(\'' + c.id + '\')">'
+          + '<div class="case-num">' + (c.caseNumber||'') + '</div>'
+          + '<div class="case-defendant">' + (c.defendant||'') + '<span class="needs-update-tag" style="background:rgba(150,50,220,0.15);color:#bb77ff;border-color:rgba(150,50,220,0.4)">⚠ FORFEITURE</span></div>'
+          + '<div class="case-charges">' + (c.charges||'') + '</div>'
+          + '<div class="case-meta"><span class="badge badge-forfeiture">forfeiture</span>'
+          + (next ? '<span class="case-next">' + next.type + ' · ' + fmtShort(next.date) + (days!==null&&days>=0&&days<=14?' ('+days+'d)':'') + '</span>' : '')
+          + '</div></div>';
+      }).join('') : '<div class="empty" style="grid-column:1/-1"><div class="empty-title">No forfeiture cases</div></div>';
+      return;
+    }
     const rx = typeMap[caseFilter];
     if (rx) {
       filtered = filtered.filter(c =>
@@ -1075,6 +1097,7 @@ function setTab(t) {
               <option>Sentencing</option>
               <option>Sentence Imposition</option>
               <option>Probation Violation Continuance</option>
+              <option>Failed to Appear</option>
             </select>
           </div>
           <div class="field" style="margin:0"><label>Notes</label><input type="text" id="quick-cd-notes" placeholder="e.g. 9:00 AM"></div>
@@ -1206,6 +1229,23 @@ function quickAddCourtDate() {
 
   // Add the new court date
   c.courtDates = [...c.courtDates, { id: uid(), date, type, notes }];
+
+  // If Failed to Appear, auto-set forfeiture status
+  if (/^failed to appear$/i.test(type)) {
+    c.status = 'forfeiture';
+    saveCasesToDrive();
+    caseView = 'all';
+    document.getElementById('vt-all')?.classList.add('active');
+    document.getElementById('vt-today')?.classList.remove('active');
+    document.getElementById('vt-bydate')?.classList.remove('active');
+    const fbFTA = document.querySelector('.filter-bar');
+    if (fbFTA) fbFTA.style.display = '';
+    renderCases();
+    showView('cases');
+    history.pushState({ view: 'cases' }, '', '#cases');
+    toast('⚠ FTA recorded — case set to Forfeiture Status');
+    return;
+  }
 
   // If trial date, prompt for status change and folder creation
   if (/^trial$/i.test(type)) {
