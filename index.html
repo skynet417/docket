@@ -179,9 +179,6 @@
   .badge-pled-sentencing { background: rgba(255,184,108,0.12); color: var(--orange); border: 1px solid rgba(255,184,108,0.3); }
   .badge-pled-imposed { background: rgba(255,184,108,0.08); color: var(--orange); border: 1px solid rgba(255,184,108,0.2); }
   .badge-closed { background: rgba(100,100,100,0.12); color: #888; border: 1px solid rgba(100,100,100,0.3); }
-  .badge-pled-close { background: rgba(80,250,123,0.08); color: #50fa7b; border: 1px solid rgba(80,250,123,0.2); }
-  .archive-tag { display:inline-block; margin-left:8px; padding:1px 7px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; background:rgba(100,100,100,0.18); color:#999; border:1px solid rgba(100,100,100,0.35); vertical-align:middle; }
-  .case-card.archived-card { opacity:0.65; border-color:rgba(100,100,100,0.2) !important; }
 
   /* Detail view */
   .back-btn { background: none; border: none; color: var(--muted); font-family: var(--font); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; padding: 0; }
@@ -409,7 +406,7 @@
         <input class="search-input" type="text" id="search" placeholder="Search by defendant, case number, charges, investigator..." oninput="renderCases()">
       </div>
       <div class="filter-bar">
-        <button class="filter-pill fp-all active" id="fp-all" onclick="setCaseFilter('all')">All Cases</button>
+        <button class="filter-pill fp-all active" id="fp-all" onclick="setCaseFilter('all')">Active Cases</button>
         <button class="filter-pill fp-plea" id="fp-plea" onclick="setCaseFilter('plea')">Plea</button>
         <button class="filter-pill fp-sentencing" id="fp-sentencing" onclick="setCaseFilter('sentencing')">Sentencing Hearing</button>
         <button class="filter-pill fp-imposition" id="fp-imposition" onclick="setCaseFilter('imposition')">Sentence Imposition</button>
@@ -426,10 +423,6 @@
 
     <div id="view-detail" class="hidden">
       <button class="back-btn" onclick="showView('cases')">← Docket Manager</button>
-      <div id="archive-banner" style="display:none;background:rgba(100,100,100,0.15);border:1px solid rgba(100,100,100,0.3);border-radius:4px;padding:8px 14px;margin-bottom:14px;font-size:13px;color:#999;letter-spacing:.03em">
-        📁 <strong>ARCHIVED CASE</strong> — Closed and moved to archive. All records preserved as historical.
-        <span id="archive-banner-date" style="margin-left:8px;opacity:.7"></span>
-      </div>
       <div class="detail-header">
         <div>
           <div class="detail-casenum" id="det-casenum"></div>
@@ -580,7 +573,7 @@ let state = { cases: [], currentView: 'cases', currentCaseId: null, calYear: new
 let editingCaseId = null;
 let caseSort = 'alpha'; // 'alpha' | 'date'
 let caseView = 'all'; // 'all' | 'today' | 'bydate'
-let caseFilter = 'all'; // 'all' | 'plea' | 'sentencing' | 'imposition' | 'trial' | 'hearing'
+let caseFilter = 'active'; // 'all' | 'active' | 'plea' | 'sentencing' | 'imposition' | 'trial' | 'hearing'
 let pendingImports = [];
 
 // ─── Auth ────────────────────────────────────────────────────────────
@@ -641,7 +634,6 @@ async function loadCasesFromDrive() {
     } else {
       state.cases = [];
     }
-    archiveOldClosedCases(); // auto-archive closed cases older than 6 months
     setSyncStatus('saved');
   } catch(e) {
     setSyncStatus('offline');
@@ -787,7 +779,7 @@ function setCaseView(v) {
 
 
 function needsDateUpdate(c) {
-  if (c.status === 'closed' || c.status === 'pled-close' || c.status === 'forfeiture' || c.archived) return false;
+  if (c.status === 'closed' || c.status === 'pled-close' || c.status === 'forfeiture') return false;
   const today = todayISO();
   const upcoming = (c.courtDates||[]).filter(d => d.date >= today && !d.completed);
   return upcoming.length === 0;
@@ -804,7 +796,7 @@ function lastName(fullName) {
 
 function setCaseFilter(f) {
   caseFilter = f;
-  ['all','plea','sentencing','imposition','trial','hearing','forfeiture'].forEach(k => {
+  ['all','plea','sentencing','imposition','trial','hearing','forfeiture','active'].forEach(k => {
     const el = document.getElementById('fp-'+k);
     if (el) el.classList.toggle('active', k === f);
   });
@@ -828,7 +820,7 @@ function renderCasesByDate(today, q) {
   // Collect all future non-completed court dates across all cases
   const entries = [];
   state.cases.forEach(c => {
-    if (c.status === 'closed' || c.status === 'pled-close' || c.archived) return;
+    if (c.status === 'closed' || c.status === 'pled-close') return;
     (c.courtDates||[]).forEach(d => {
       if (!d.completed && d.date >= today) {
         entries.push({ c, d });
@@ -906,27 +898,15 @@ function renderCases() {
     return;
   }
 
-  // Archived cases: only show when explicitly searched, never in browse/today views
-  const isSearching = q.length > 0;
-
   // Filter by view (all vs today)
   let filtered = state.cases.filter(c => {
-    // Archived cases only surface via search
-    if (c.archived) {
-      if (!isSearching) return false;
-      return [c.defendant, c.caseNumber, c.charges, c.investigator, c.summary, c.courtNotes].some(f => f?.toLowerCase().includes(q));
-    }
     if (caseView === 'today') {
       // Exclude closed/pled cases from today's view
       if (c.status === 'closed' || c.status === 'pled-close') return false;
       // Only show if has a non-completed court date matching today
       return (c.courtDates||[]).some(d => d.date === today && !d.completed);
     }
-    // Normal browse: exclude closed/pled (they'll show until archived)
-    if (caseView === 'all' && !isSearching) {
-      if (c.status === 'closed' || c.status === 'pled-close') return false;
-    }
-    return !isSearching || [c.defendant, c.caseNumber, c.charges, c.investigator, c.summary, c.courtNotes].some(f => f?.toLowerCase().includes(q));
+    return !q || [c.defendant, c.caseNumber, c.charges, c.investigator].some(f => f?.toLowerCase().includes(q));
   });
 
   // Also apply search in today view
@@ -963,11 +943,16 @@ function renderCases() {
       }).join('') : '<div class="empty" style="grid-column:1/-1"><div class="empty-title">No forfeiture cases</div></div>';
       return;
     }
-    const rx = typeMap[caseFilter];
-    if (rx) {
-      filtered = filtered.filter(c =>
-        (c.courtDates||[]).some(d => rx.test(d.type) && !/status|review|probation|discussion/i.test(d.type))
-      );
+    if (caseFilter === 'active') {
+      filtered = filtered.filter(c => c.status !== 'closed' && c.status !== 'pled-close' && c.status !== 'forfeiture' && !c.archived);
+      // fall through to sort & render normally
+    } else {
+      const rx = typeMap[caseFilter];
+      if (rx) {
+        filtered = filtered.filter(c =>
+          (c.courtDates||[]).some(d => rx.test(d.type) && !/status|review|probation|discussion/i.test(d.type))
+        );
+      }
     }
   }
 
@@ -994,14 +979,10 @@ function renderCases() {
     });
   }
 
-  const activeCases = state.cases.filter(c => !c.archived);
-  const todayCount = activeCases.filter(c => (c.courtDates||[]).some(d => d.date === today && !d.completed)).length;
-  const archivedMatches = filtered.filter(c => c.archived).length;
+  const todayCount = state.cases.filter(c => (c.courtDates||[]).some(d => d.date === today && !d.completed)).length;
   document.getElementById('case-count-label').textContent = caseView === 'today'
     ? `${filtered.length} case${filtered.length !== 1 ? 's' : ''} today`
-    : archivedMatches > 0
-      ? `${filtered.length - archivedMatches} active · ${archivedMatches} archived match${archivedMatches !== 1 ? 'es' : ''}`
-      : `${filtered.length} of ${activeCases.length} case${activeCases.length !== 1 ? 's' : ''}${todayCount > 0 ? ' · ' + todayCount + ' today' : ''}`;
+    : `${filtered.length} of ${state.cases.length} case${state.cases.length !== 1 ? 's' : ''}${todayCount > 0 ? ' · ' + todayCount + ' today' : ''}`;
   const grid = document.getElementById('case-grid');
   if (!filtered.length) {
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-title">${state.cases.length ? 'No matches' : 'No cases yet'}</div><div>${state.cases.length ? 'Try a different search or filter.' : 'Click "+ New Case" to get started.'}</div></div>`;
@@ -1012,14 +993,11 @@ function renderCases() {
     const days = next ? daysUntil(next.date) : null;
     const isTrial = next && /^trial$/i.test(next.type);
     const isUrgent = next && /suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i.test(next.type) && !/status|review|probation|discussion/i.test(next.type);
-    const needsUpdate = !c.archived && needsDateUpdate(c);
-    const isArchived = !!c.archived;
-    const cardClass = 'case-card' + (isArchived ? ' archived-card' : needsUpdate ? ' needs-update' : isTrial ? ' highlight-trial' : isUrgent ? ' highlight-urgent' : '');
-    const urgentTag = isArchived ? '<span class="archive-tag">📁 Archived</span>'
-                   : needsUpdate ? '<span class="needs-update-tag">⚠ NEEDS DATE</span>'
+    const needsUpdate = needsDateUpdate(c);
+    const cardClass = 'case-card' + (needsUpdate ? ' needs-update' : isTrial ? ' highlight-trial' : isUrgent ? ' highlight-urgent' : '');
+    const urgentTag = needsUpdate ? '<span class="needs-update-tag">⚠ NEEDS DATE</span>'
                    : isTrial ? '<span class="trial-tag">&#9876; TRIAL</span>'
                    : isUrgent ? '<span class="urgent-tag">&#9876; ' + (next.type).toUpperCase() + '</span>' : '';
-    const closedDateStr = isArchived && c.closedAt ? ' · Closed ' + fmtShort(c.closedAt.slice(0,10)) : '';
     const cid = c.id;
     return `<div class="${cardClass}" onclick="openCase('${cid}')">`
       + `<div class="case-num">${c.caseNumber || 'No case number'}</div>`
@@ -1027,7 +1005,7 @@ function renderCases() {
       + `<div class="case-charges">${c.charges || 'No charges listed'}</div>`
       + `<div class="case-meta">`
       + `<span class="badge badge-${c.status||'active'}">${c.status||'active'}</span>`
-      + (isArchived ? `<span class="case-next" style="color:#888">${closedDateStr}</span>` : next ? `<span class="case-next${(isTrial||isUrgent)?' case-next-urgent':''}">${next.type} · ${fmtShort(next.date)}${(days!==null&&days>=0&&days<=14)?' ('+days+'d)':''}</span>` : '')
+      + (next ? `<span class="case-next${(isTrial||isUrgent)?' case-next-urgent':''}">${next.type} · ${fmtShort(next.date)}${(days!==null&&days>=0&&days<=14)?' ('+days+'d)':''}</span>` : '')
       + '</div></div>';
   }).join('');
 }
@@ -1046,13 +1024,6 @@ function renderDetail() {
   document.getElementById('det-casenum').textContent = c.caseNumber || '';
   document.getElementById('det-name').textContent = c.defendant || '';
   document.getElementById('det-charges').textContent = c.charges || '';
-  // Show/hide archived banner
-  const archiveBanner = document.getElementById('archive-banner');
-  if (archiveBanner) {
-    archiveBanner.style.display = c.archived ? 'block' : 'none';
-    const archiveDateEl = document.getElementById('archive-banner-date');
-    if (archiveDateEl && c.closedAt) archiveDateEl.textContent = 'Closed: ' + fmtShort(c.closedAt.slice(0,10));
-  }
   document.getElementById('tab-court').textContent = `Court Dates (${(c.courtDates||[]).length})`;
   document.getElementById('tab-todos').textContent = `To-Do (${(c.todos||[]).filter(t=>!t.done).length})`;
   setTab(currentTab);
@@ -1706,31 +1677,27 @@ function confirmPleaDate() {
 
 
 
-// ─── Archive closed cases after 6 months ────────────────────────────
-const CLOSED_STATUSES = ['closed', 'pled-close'];
-const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
-
-function archiveOldClosedCases() {
+// ─── Auto-purge closed cases after 48 hours ──────────────────────────
+function purgeOldClosedCases() {
   try {
-    const now = Date.now();
-    let changed = false;
-    state.cases.forEach(c => {
-      if (!c || !c.id) return;
-      if (CLOSED_STATUSES.includes(c.status) && c.closedAt && !c.archived) {
-        const closedTime = new Date(c.closedAt).getTime();
-        if ((now - closedTime) >= SIX_MONTHS_MS) {
-          c.archived = true;
-          changed = true;
-          console.log('Archived case:', c.caseNumber, c.defendant);
-        }
-      }
-    });
-    if (changed) saveCasesToDrive();
-  } catch(e) { console.error('Archive error:', e); }
+  const now = Date.now();
+  const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+  const before = state.cases.length;
+  state.cases = state.cases.filter(c => {
+    if (!c || !c.id) return false; // remove corrupt entries
+    if ((c.status === 'closed') && c.closedAt) {
+      const closedTime = new Date(c.closedAt).getTime();
+      return (now - closedTime) < FORTY_EIGHT_HOURS;
+    }
+    return true;
+  });
+  const purged = before - state.cases.length;
+  if (purged > 0) {
+    saveCasesToDrive();
+    console.log('Purged ' + purged + ' closed case(s) older than 48 hours.');
+  }
+  } catch(e) { console.error('Purge error:', e); }
 }
-
-// Keep old name for any callers
-function purgeOldClosedCases() { archiveOldClosedCases(); }
 
 
 
@@ -1880,16 +1847,16 @@ function handleOverviewStatusChange(newStatus, caseId) {
   if (!c) { console.error('Case not found:', caseId); return; }
 
   if (newStatus === 'pled-close') {
-    if (!confirm('Close "' + c.defendant + '"?\n\nThe case will remain searchable in the archive for 6 months.')) {
+    if (!confirm('Close and remove "' + c.defendant + '" from tracking?\n\nThis cannot be undone.')) {
+      // Reset dropdown back to current status
       setTab('overview');
       return;
     }
-    c.status = 'pled-close';
-    c.closedAt = c.closedAt || new Date().toISOString();
+    state.cases = state.cases.filter(x => x.id !== caseId);
     saveCasesToDrive();
     showView('cases');
     renderCases();
-    toast('Case closed — archived for 6 months.');
+    toast('Case closed and removed from tracking.');
     return;
   }
 
@@ -1906,7 +1873,7 @@ function handleOverviewStatusChange(newStatus, caseId) {
   }
 
   if (newStatus === 'closed') {
-    c.closedAt = c.closedAt || new Date().toISOString();
+    c.closedAt = new Date().toISOString();
   }
   if (newStatus === 'trial' && !c.trialPrepLink) {
     c.status = newStatus;
