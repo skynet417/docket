@@ -631,7 +631,15 @@ async function loadCasesFromDrive() {
       const content = await fetch(`https://www.googleapis.com/drive/v3/files/${casesFileId}?alt=media`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       }).then(r => r.json());
-      state.cases = content.cases || [];
+      // Deduplicate by case ID on load
+      const raw = content.cases || [];
+      const seen = new Set();
+      state.cases = raw.filter(c => {
+        if (!c || !c.id) return false;
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
     } else {
       state.cases = [];
     }
@@ -649,6 +657,14 @@ async function saveCasesToDrive() {
   if (!accessToken) return;
   setSyncStatus('saving');
   try {
+    // Deduplicate by case ID before saving
+    const seenIds = new Set();
+    state.cases = state.cases.filter(c => {
+      if (!c || !c.id) return false;
+      if (seenIds.has(c.id)) return false;
+      seenIds.add(c.id);
+      return true;
+    });
     const payload = JSON.stringify({ version: 1, lastUpdated: new Date().toISOString().slice(0,10), cases: state.cases });
     const metadata = { title: CASES_FILENAME, mimeType: 'application/json' };
     const form = new FormData();
@@ -1396,6 +1412,10 @@ function saveCase() {
       c[f] = document.getElementById('f-'+f)?.value || '';
     });
     c.status = document.getElementById('f-status').value;
+    // Warn if duplicate case number
+    if (c.caseNumber && state.cases.some(x => x.caseNumber === c.caseNumber)) {
+      if (!confirm('A case with number "' + c.caseNumber + '" already exists. Add anyway?')) return;
+    }
     state.cases.unshift(c);
   }
   save();
