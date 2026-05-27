@@ -787,9 +787,8 @@ function setCaseView(v) {
   document.getElementById('vt-all')?.classList.toggle('active', v === 'all');
   document.getElementById('vt-today')?.classList.toggle('active', v === 'today');
   document.getElementById('vt-bydate')?.classList.toggle('active', v === 'bydate');
-  // Hide filter bar and sort when in Today or bydate view
   const filterBar = document.querySelector('.filter-bar');
-  if (filterBar) filterBar.style.display = (v === 'today' || v === 'bydate') ? 'none' : '';
+  if (filterBar) filterBar.style.display = '';
   renderCases();
 }
 
@@ -834,12 +833,29 @@ function isUrgentHearing(c) {
 }
 
 function renderCasesByDate(today, q) {
+  const typeMap = {
+    plea: /plea/i,
+    sentencing: /^sentencing$/i,
+    imposition: /sentence imposition/i,
+    trial: /^trial$/i,
+    hearing: /suppression|motion in limine|pretrial motion|sentencing hearing|sentence imposition|impose sentence/i
+  };
+
   // Collect all future non-completed court dates across all cases
   const entries = [];
   state.cases.forEach(c => {
     if (c.status === 'closed' || c.status === 'pled-close') return;
+    // Active filter: exclude forfeiture cases
+    if (caseFilter === 'active' && c.status === 'forfeiture') return;
+    // Forfeiture filter: only forfeiture cases
+    if (caseFilter === 'forfeiture' && c.status !== 'forfeiture') return;
     (c.courtDates||[]).forEach(d => {
       if (!d.completed && d.date >= today) {
+        // Apply hearing type filter
+        if (caseFilter !== 'all' && caseFilter !== 'active' && caseFilter !== 'forfeiture') {
+          const rx = typeMap[caseFilter];
+          if (rx && !rx.test(d.type)) return;
+        }
         entries.push({ c, d });
       }
     });
@@ -1071,8 +1087,7 @@ function setTab(t) {
             <option value="trial" ${c.status==='trial'?'selected':''}>Trial Prep</option>
             <option value="pled-sentencing" ${c.status==='pled-sentencing'?'selected':''}>Pled Guilty — Sentencing Hearing</option>
             <option value="pled-imposed" ${c.status==='pled-imposed'?'selected':''}>Pled Guilty — To Be Imposed</option>
-            <option value="pled-close" ${c.status==='pled-close'?'selected':''}>Pled Guilty — Close Case</option>
-            <option value="forfeiture" ${c.status==='forfeiture'?'selected':''}>Forfeiture Status</option>
+            <option value="pled-close">Pled Guilty — Close Case</option>
             <option value="closed" ${c.status==='closed'?'selected':''}>Closed</option>
           </select>
         </div>
