@@ -1087,7 +1087,8 @@ function setTab(t) {
             <option value="trial" ${c.status==='trial'?'selected':''}>Trial Prep</option>
             <option value="pled-sentencing" ${c.status==='pled-sentencing'?'selected':''}>Pled Guilty — Sentencing Hearing</option>
             <option value="pled-imposed" ${c.status==='pled-imposed'?'selected':''}>Pled Guilty — To Be Imposed</option>
-            <option value="pled-close">Pled Guilty — Close Case</option>
+            <option value="pled-close" ${c.status==='pled-close'?'selected':''}>Pled Guilty — Close Case</option>
+            <option value="forfeiture" ${c.status==='forfeiture'?'selected':''}>Forfeiture Status</option>
             <option value="closed" ${c.status==='closed'?'selected':''}>Closed</option>
           </select>
         </div>
