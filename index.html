@@ -845,13 +845,10 @@ function renderCasesByDate(today, q) {
   const entries = [];
   state.cases.forEach(c => {
     if (c.status === 'closed' || c.status === 'pled-close') return;
-    // Active filter: exclude forfeiture cases
     if (caseFilter === 'active' && c.status === 'forfeiture') return;
-    // Forfeiture filter: only forfeiture cases
     if (caseFilter === 'forfeiture' && c.status !== 'forfeiture') return;
     (c.courtDates||[]).forEach(d => {
       if (!d.completed && d.date >= today) {
-        // Apply hearing type filter
         if (caseFilter !== 'all' && caseFilter !== 'active' && caseFilter !== 'forfeiture') {
           const rx = typeMap[caseFilter];
           if (rx && !rx.test(d.type)) return;
@@ -1088,7 +1085,7 @@ function setTab(t) {
             <option value="pled-sentencing" ${c.status==='pled-sentencing'?'selected':''}>Pled Guilty — Sentencing Hearing</option>
             <option value="pled-imposed" ${c.status==='pled-imposed'?'selected':''}>Pled Guilty — To Be Imposed</option>
             <option value="pled-close" ${c.status==='pled-close'?'selected':''}>Pled Guilty — Close Case</option>
-            <option value="forfeiture" ${c.status==='forfeiture'?'selected':''}>Forfeiture Status</option>
+            <option value="forfeiture" ${c.status==='forfeiture'?'selected':''}>Forfeiture</option>
             <option value="closed" ${c.status==='closed'?'selected':''}>Closed</option>
           </select>
         </div>
@@ -1192,7 +1189,18 @@ function setTab(t) {
         const dow = d.date ? new Date(d.date+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'}) : '';
         const isToday = d.date === today;
         const urgentColor = days !== null && days <= 3 ? 'var(--red)' : 'var(--orange)';
-        return `<div class="court-date-card${d.completed?' completed-hearing':''}${isPastSection&&!d.completed?' past-hearing':''}">
+        return d.forfeitureEntry
+          ? `<div class="court-date-card" style="border:1px solid rgba(150,50,220,0.5);background:rgba(150,50,220,0.08)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div class="cd-date" style="color:#bb77ff">${dow.toUpperCase()} · ${fmtDate(d.date)}</div>
+              <div class="cd-type" style="color:#bb77ff;font-size:15px">⚠ FORFEITURE TAKEN</div>
+              ${d.notes?`<div style="font-size:13px;color:rgba(187,119,255,0.7);margin-top:4px">${d.notes}</div>`:''}
+            </div>
+            <button class="btn btn-danger btn-sm" style="flex-shrink:0;margin-left:12px" onclick="deleteCourtDate('${d.id}')">Remove</button>
+          </div>
+        </div>`
+          : `<div class="court-date-card${d.completed?' completed-hearing':''}${isPastSection&&!d.completed?' past-hearing':''}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
               <div class="cd-date">${dow.toUpperCase()} · ${fmtDate(d.date)}
@@ -1271,6 +1279,8 @@ function quickAddCourtDate() {
   // If Failed to Appear, auto-set forfeiture status
   if (/^failed to appear$/i.test(type)) {
     c.status = 'forfeiture';
+    // Add a forfeiture record entry to court dates
+    c.courtDates = [...c.courtDates, { id: uid(), date: todayISO(), type: 'Forfeiture', notes: 'Forfeiture taken — bond estreated.', completed: true, forfeitureEntry: true }];
     saveCasesToDrive();
     caseView = 'all';
     document.getElementById('vt-all')?.classList.add('active');
@@ -1911,6 +1921,14 @@ function handleOverviewStatusChange(newStatus, caseId) {
 
   if (newStatus === 'closed') {
     c.closedAt = new Date().toISOString();
+  }
+  if (newStatus === 'forfeiture') {
+    // Add a forfeiture record entry if one doesn't already exist for today
+    const todayStr = todayISO();
+    const alreadyHas = (c.courtDates||[]).some(d => d.forfeitureEntry && d.date === todayStr);
+    if (!alreadyHas) {
+      c.courtDates = [...(c.courtDates||[]), { id: uid(), date: todayStr, type: 'Forfeiture', notes: 'Forfeiture taken — bond estreated.', completed: true, forfeitureEntry: true }];
+    }
   }
   if (newStatus === 'trial' && !c.trialPrepLink) {
     c.status = newStatus;
