@@ -463,12 +463,42 @@
 
 <!-- Case modal -->
 <div id="case-modal" class="modal-backdrop hidden">
-  <div class="modal">
+  <div class="modal" style="max-width:560px">
     <div class="modal-head">
       <div class="modal-title" id="case-modal-title">New Case</div>
       <button class="close-btn" onclick="closeModal('case-modal')">×</button>
     </div>
-    <div class="modal-body">
+
+    <!-- Tab bar (only shown for new case) -->
+    <div id="case-modal-tabs" style="display:flex;border-bottom:1px solid var(--border);padding:0 20px;gap:0;background:var(--surface);">
+      <button id="tab-btn-docket" onclick="switchCaseTab('docket')" style="padding:10px 18px;background:none;border:none;border-bottom:2px solid var(--blue);color:var(--text);font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.03em;margin-bottom:-1px;">📄 From Docket</button>
+      <button id="tab-btn-manual" onclick="switchCaseTab('manual')" style="padding:10px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer;letter-spacing:.03em;margin-bottom:-1px;">✏ Manual Entry</button>
+    </div>
+
+    <!-- FROM DOCKET TAB -->
+    <div id="tab-docket" class="modal-body" style="padding-top:16px;">
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Case Number to Add</label>
+        <input type="text" id="docket-case-number" placeholder="16CC1-2025-CR-50000"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:14px;font-family:var(--mono);"
+          oninput="checkDocketReadyState()">
+        <div id="docket-case-number-hint" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;">⚠ This case number already exists on your docket — importing will add a new date.</div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Docket PDF</label>
+        <div id="docket-drop-zone" onclick="document.getElementById('docket-pdf-input').click()"
+          style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;">
+          <div style="font-size:28px;margin-bottom:6px;">📄</div>
+          <div id="docket-drop-label" style="font-size:13px;color:var(--muted);">Click or drag & drop the docket PDF here</div>
+        </div>
+        <input type="file" id="docket-pdf-input" accept=".pdf,application/pdf" class="hidden" onchange="handleDocketLookupFile(this.files[0])">
+      </div>
+      <div id="docket-status" style="font-size:13px;color:var(--muted);min-height:20px;"></div>
+      <div id="docket-preview" class="hidden" style="margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;"></div>
+    </div>
+
+    <!-- MANUAL ENTRY TAB -->
+    <div id="tab-manual" class="modal-body hidden" style="padding-top:16px;">
       <div class="row2">
         <div class="field"><label>Case Number</label><input type="text" id="f-caseNumber" placeholder="16CC1-2025-CR-50000"></div>
         <div class="field">
@@ -500,9 +530,11 @@
       </div>
       <div class="field"><label>Summary / Notes</label><textarea id="f-summary" rows="3"></textarea></div>
     </div>
+
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeModal('case-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveCase()">Save Case</button>
+      <button class="btn btn-primary hidden" id="docket-import-btn" onclick="confirmDocketLookup()">Add to Docket</button>
+      <button class="btn btn-primary" id="manual-save-btn" onclick="saveCase()">Save Case</button>
     </div>
   </div>
 </div>
@@ -1420,14 +1452,210 @@ function deleteCurrentCase() {
 }
 
 // ─── Case modal ──────────────────────────────────────────────────────
+// ─── Case Modal Tab Logic ─────────────────────────────────────────────
+let docketLookupResult = null; // holds the single extracted case
+
+function switchCaseTab(tab) {
+  const isDocket = tab === 'docket';
+  document.getElementById('tab-docket').classList.toggle('hidden', !isDocket);
+  document.getElementById('tab-manual').classList.toggle('hidden', isDocket);
+  document.getElementById('docket-import-btn').classList.toggle('hidden', !isDocket || !docketLookupResult);
+  document.getElementById('manual-save-btn').classList.toggle('hidden', isDocket);
+  // Tab button styles
+  const active = 'border-bottom:2px solid var(--blue);color:var(--text);font-weight:700;';
+  const inactive = 'border-bottom:2px solid transparent;color:var(--muted);font-weight:600;';
+  document.getElementById('tab-btn-docket').style.cssText = `padding:10px 18px;background:none;border:none;cursor:pointer;font-size:13px;letter-spacing:.03em;margin-bottom:-1px;${isDocket?active:inactive}`;
+  document.getElementById('tab-btn-manual').style.cssText = `padding:10px 18px;background:none;border:none;cursor:pointer;font-size:13px;letter-spacing:.03em;margin-bottom:-1px;${!isDocket?active:inactive}`;
+}
+
+function checkDocketReadyState() {
+  const num = document.getElementById('docket-case-number').value.trim();
+  const hint = document.getElementById('docket-case-number-hint');
+  if (num && state.cases.some(c => c.caseNumber === num)) {
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+function setupDocketDropZone() {
+  const dz = document.getElementById('docket-drop-zone');
+  if (!dz) return;
+  dz.ondragover = e => { e.preventDefault(); dz.style.borderColor = 'var(--blue)'; dz.style.background = 'rgba(45,111,191,.08)'; };
+  dz.ondragleave = () => { dz.style.borderColor = 'var(--border)'; dz.style.background = ''; };
+  dz.ondrop = e => {
+    e.preventDefault();
+    dz.style.borderColor = 'var(--border)'; dz.style.background = '';
+    if (e.dataTransfer.files[0]) handleDocketLookupFile(e.dataTransfer.files[0]);
+  };
+}
+
+async function handleDocketLookupFile(file) {
+  const statusEl = document.getElementById('docket-status');
+  const caseNum = document.getElementById('docket-case-number').value.trim();
+  if (!file) { statusEl.textContent = 'No file selected.'; return; }
+  if (!caseNum) { statusEl.textContent = '⚠ Please enter a case number first.'; return; }
+
+  document.getElementById('docket-drop-label').textContent = file.name;
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = '⏳ Reading PDF…';
+  document.getElementById('docket-preview').classList.add('hidden');
+  document.getElementById('docket-import-btn').classList.add('hidden');
+  docketLookupResult = null;
+
+  try {
+    if (typeof pdfjsLib === 'undefined') { statusEl.textContent = '❌ PDF library not loaded.'; return; }
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      fullText += tc.items.map(item => item.str).join(' ') + '\n';
+    }
+    statusEl.textContent = '🤖 Asking Claude to find ' + caseNum + '…';
+    await lookupCaseInDocket(fullText, caseNum);
+  } catch(e) {
+    statusEl.textContent = '❌ Error: ' + e.message;
+    console.error(e);
+  }
+}
+
+async function lookupCaseInDocket(text, targetCaseNumber) {
+  const statusEl = document.getElementById('docket-status');
+
+  let docketDate = todayISO();
+  const mdyMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdyMatch) {
+    docketDate = `${mdyMatch[3]}-${String(mdyMatch[1]).padStart(2,'0')}-${String(mdyMatch[2]).padStart(2,'0')}`;
+  }
+
+  const prompt = `You are parsing a Coffee County Circuit Court docket. Find the case with case number "${targetCaseNumber}".
+
+Extract all details for ONLY that specific case number and return a JSON object with:
+- caseNumber: the exact case number
+- defendant: defendant full name(s) — if multiple defendants, list all separated by " and "
+- defenseCounsel: defense attorney name (appears after "Atty:" near defendant name). Empty string if none.
+- charges: all charge descriptions joined with "; " (use the bold charge names, not statute numbers)
+- judge: judge name (appears as "Judge:" or "Hon."). Empty string if not found.
+- hearingType: one of: Discussion, Plea Hearing, Motion Hearing, Trial, Sentencing, Arraignment, Status Hearing, Probation Violation Continuance, Review Hearing
+- hearingNotes: any hearing notes (empty string if none)
+- docketDate: "${docketDate}"
+
+If the case number is NOT found in the docket, return: {"notFound": true}
+
+Return ONLY a valid JSON object, no markdown, no explanation.
+
+DOCKET TEXT:
+${text.substring(0, 60000)}`;
+
+  try {
+    const response = await fetch('https://docket-proxy.jasonponder.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    if (!data.content || !data.content[0]) { statusEl.textContent = '❌ No response from Claude.'; return; }
+
+    let raw = data.content[0].text.trim()
+      .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    let result;
+    try { result = JSON.parse(raw); } catch(e) {
+      statusEl.textContent = '❌ Could not parse response.'; console.error(raw); return;
+    }
+
+    if (result.notFound) {
+      statusEl.style.color = 'var(--orange)';
+      statusEl.textContent = `⚠ Case ${targetCaseNumber} not found in this docket.`;
+      return;
+    }
+
+    docketLookupResult = result;
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = `✓ Found — ${result.defendant}`;
+
+    const preview = document.getElementById('docket-preview');
+    preview.classList.remove('hidden');
+    preview.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Case Preview</div>
+      <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">${result.caseNumber}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">${result.defendant}</div>
+      ${result.charges ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">${result.charges}</div>` : ''}
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;">
+        ${result.hearingType ? `<span style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--cyan);">${result.hearingType} · ${fmtDate(result.docketDate)}</span>` : ''}
+        ${result.defenseCounsel ? `<span style="font-size:11px;color:var(--muted);">Defense: ${result.defenseCounsel}</span>` : ''}
+        ${result.judge ? `<span style="font-size:11px;color:var(--muted);">Judge: ${result.judge}</span>` : ''}
+      </div>`;
+
+    document.getElementById('docket-import-btn').classList.remove('hidden');
+
+  } catch(e) {
+    statusEl.textContent = '❌ API error: ' + e.message;
+    console.error(e);
+  }
+}
+
+function confirmDocketLookup() {
+  if (!docketLookupResult) return;
+  const f = docketLookupResult;
+  const existing = state.cases.find(c => c.caseNumber === f.caseNumber);
+  const newDate = { id: uid(), date: f.docketDate, type: f.hearingType, notes: f.hearingNotes || '' };
+  let msg;
+  if (existing) {
+    const alreadyHas = existing.courtDates?.some(d => d.date === f.docketDate && d.type === f.hearingType);
+    if (!alreadyHas) existing.courtDates = [...(existing.courtDates||[]), newDate];
+    if (f.defenseCounsel && !existing.defenseCounsel) existing.defenseCounsel = f.defenseCounsel;
+    if (f.judge && !existing.judge) existing.judge = f.judge;
+    msg = `✓ Added court date to ${f.defendant}`;
+  } else {
+    const c = {
+      id: uid(), caseNumber: f.caseNumber, defendant: f.defendant, charges: f.charges || '',
+      status: 'active', court: 'Coffee County Circuit Court',
+      judge: f.judge || '', defenseCounsel: f.defenseCounsel || '',
+      investigator: '', analyst: '', driveLink: '', summary: '',
+      courtDates: [newDate], todos: [], courtNotes: '', pleaStatus: 'none'
+    };
+    state.cases.unshift(c);
+    msg = `✓ Added ${f.defendant} to your docket`;
+  }
+  save();
+  closeModal('case-modal');
+  renderCases();
+  toast(msg);
+  docketLookupResult = null;
+}
+
 function openNewCase() {
   editingCaseId = null;
+  docketLookupResult = null;
   document.getElementById('case-modal-title').textContent = 'New Case';
+  // Show tabs for new case
+  document.getElementById('case-modal-tabs').style.display = 'flex';
+  // Reset docket tab
+  document.getElementById('docket-case-number').value = '';
+  document.getElementById('docket-case-number-hint').style.display = 'none';
+  document.getElementById('docket-drop-label').textContent = 'Click or drag & drop the docket PDF here';
+  document.getElementById('docket-status').textContent = '';
+  document.getElementById('docket-status').style.color = 'var(--muted)';
+  document.getElementById('docket-preview').classList.add('hidden');
+  document.getElementById('docket-import-btn').classList.add('hidden');
+  document.getElementById('docket-pdf-input').value = '';
+  // Reset manual tab fields
   ['caseNumber','defendant','charges','court','judge','investigator','analyst','defenseCounsel','driveLink','summary'].forEach(f => {
     const el = document.getElementById('f-'+f);
     if (el) el.value = f === 'court' ? 'Coffee County Circuit Court' : '';
   });
   document.getElementById('f-status').value = 'active';
+  // Default to docket tab
+  switchCaseTab('docket');
+  setupDocketDropZone();
   document.getElementById('case-modal').classList.remove('hidden');
 }
 function openEditCase() {
@@ -1435,6 +1663,12 @@ function openEditCase() {
   if (!c) return;
   editingCaseId = c.id;
   document.getElementById('case-modal-title').textContent = 'Edit Case';
+  // Hide tabs in edit mode — just show the form
+  document.getElementById('case-modal-tabs').style.display = 'none';
+  document.getElementById('tab-docket').classList.add('hidden');
+  document.getElementById('tab-manual').classList.remove('hidden');
+  document.getElementById('docket-import-btn').classList.add('hidden');
+  document.getElementById('manual-save-btn').classList.remove('hidden');
   ['caseNumber','defendant','charges','court','judge','investigator','analyst','defenseCounsel','driveLink','summary'].forEach(f => {
     const el = document.getElementById('f-'+f);
     if (el) el.value = c[f] || '';
