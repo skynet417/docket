@@ -478,11 +478,11 @@
     <!-- FROM DOCKET TAB -->
     <div id="tab-docket" class="modal-body" style="padding-top:16px;">
       <div style="margin-bottom:12px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Case Number to Add</label>
-        <input type="text" id="docket-case-number" placeholder="16CC1-2025-CR-50000"
-          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:14px;font-family:var(--mono);"
-          oninput="checkDocketReadyState()">
-        <div id="docket-case-number-hint" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;">⚠ This case number already exists on your docket — importing will add a new date.</div>
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">5-Digit Case Number</label>
+        <input type="text" id="docket-case-number" placeholder="50557"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:18px;font-family:var(--mono);font-weight:700;letter-spacing:.08em;"
+          oninput="checkDocketReadyState()" maxlength="6">
+        <div id="docket-case-number-hint" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;">&#9888; This case already exists on your docket — importing will add a new court date.</div>
       </div>
       <div style="margin-bottom:12px;">
         <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Docket PDF</label>
@@ -1468,10 +1468,23 @@ function switchCaseTab(tab) {
   document.getElementById('tab-btn-manual').style.cssText = `padding:10px 18px;background:none;border:none;cursor:pointer;font-size:13px;letter-spacing:.03em;margin-bottom:-1px;${!isDocket?active:inactive}`;
 }
 
+function normalizeCaseInput(raw) {
+  // Strip commas and spaces, return just the digits (e.g. "50,557" -> "50557")
+  return raw.replace(/[,\s]/g, '');
+}
+
+function caseMatchesShortNum(caseNumber, shortNum) {
+  // shortNum is 4-5 digits; match if caseNumber ends with those digits
+  if (!caseNumber || !shortNum) return false;
+  const digits = normalizeCaseInput(shortNum);
+  return caseNumber.replace(/\D/g, '').endsWith(digits);
+}
+
 function checkDocketReadyState() {
-  const num = document.getElementById('docket-case-number').value.trim();
+  const raw = document.getElementById('docket-case-number').value.trim();
   const hint = document.getElementById('docket-case-number-hint');
-  if (num && state.cases.some(c => c.caseNumber === num)) {
+  const digits = normalizeCaseInput(raw);
+  if (digits.length >= 4 && state.cases.some(c => caseMatchesShortNum(c.caseNumber, digits))) {
     hint.style.display = 'block';
   } else {
     hint.style.display = 'none';
@@ -1492,9 +1505,12 @@ function setupDocketDropZone() {
 
 async function handleDocketLookupFile(file) {
   const statusEl = document.getElementById('docket-status');
-  const caseNum = document.getElementById('docket-case-number').value.trim();
+  const raw = document.getElementById('docket-case-number').value.trim();
+  const shortNum = normalizeCaseInput(raw); // e.g. "50557"
   if (!file) { statusEl.textContent = 'No file selected.'; return; }
-  if (!caseNum) { statusEl.textContent = '⚠ Please enter a case number first.'; return; }
+  if (!shortNum || shortNum.length < 4) {
+    statusEl.textContent = '⚠ Enter the 5-digit case number first.'; return;
+  }
 
   document.getElementById('docket-drop-label').textContent = file.name;
   statusEl.style.color = 'var(--muted)';
@@ -1513,15 +1529,16 @@ async function handleDocketLookupFile(file) {
       const tc = await page.getTextContent();
       fullText += tc.items.map(item => item.str).join(' ') + '\n';
     }
-    statusEl.textContent = '🤖 Asking Claude to find ' + caseNum + '…';
-    await lookupCaseInDocket(fullText, caseNum);
+    statusEl.textContent = '🤖 Looking up case ending in ' + shortNum + '…';
+    await lookupCaseInDocket(fullText, shortNum);
   } catch(e) {
     statusEl.textContent = '❌ Error: ' + e.message;
     console.error(e);
   }
 }
 
-async function lookupCaseInDocket(text, targetCaseNumber) {
+async function lookupCaseInDocket(text, shortNum) {
+  // shortNum is just the last 4-5 digits, e.g. "50557"
   const statusEl = document.getElementById('docket-status');
 
   let docketDate = todayISO();
@@ -1530,10 +1547,10 @@ async function lookupCaseInDocket(text, targetCaseNumber) {
     docketDate = `${mdyMatch[3]}-${String(mdyMatch[1]).padStart(2,'0')}-${String(mdyMatch[2]).padStart(2,'0')}`;
   }
 
-  const prompt = `You are parsing a Coffee County Circuit Court docket. Find the case with case number "${targetCaseNumber}".
+  const prompt = `You are parsing a Coffee County Circuit Court docket. Find the case whose case number ENDS with "${shortNum}". Coffee County case numbers look like "16CC1-2025-CR-50557" — the last segment after the final dash is the number you are matching.
 
-Extract all details for ONLY that specific case number and return a JSON object with:
-- caseNumber: the exact case number
+Extract all details for ONLY that specific case and return a JSON object with:
+- caseNumber: the FULL case number as it appears in the docket (e.g. "16CC1-2025-CR-50557")
 - defendant: defendant full name(s) — if multiple defendants, list all separated by " and "
 - defenseCounsel: defense attorney name (appears after "Atty:" near defendant name). Empty string if none.
 - charges: all charge descriptions joined with "; " (use the bold charge names, not statute numbers)
@@ -1542,7 +1559,7 @@ Extract all details for ONLY that specific case number and return a JSON object 
 - hearingNotes: any hearing notes (empty string if none)
 - docketDate: "${docketDate}"
 
-If the case number is NOT found in the docket, return: {"notFound": true}
+If NO case number ending in "${shortNum}" is found, return: {"notFound": true}
 
 Return ONLY a valid JSON object, no markdown, no explanation.
 
@@ -1573,7 +1590,7 @@ ${text.substring(0, 60000)}`;
 
     if (result.notFound) {
       statusEl.style.color = 'var(--orange)';
-      statusEl.textContent = `⚠ Case ${targetCaseNumber} not found in this docket.`;
+      statusEl.textContent = `⚠ No case ending in ${shortNum} found in this docket.`;
       return;
     }
 
@@ -1605,7 +1622,8 @@ ${text.substring(0, 60000)}`;
 function confirmDocketLookup() {
   if (!docketLookupResult) return;
   const f = docketLookupResult;
-  const existing = state.cases.find(c => c.caseNumber === f.caseNumber);
+  // Match existing by full caseNumber returned from Claude (exact) OR trailing digits fallback
+  const existing = state.cases.find(c => c.caseNumber === f.caseNumber || caseMatchesShortNum(c.caseNumber, normalizeCaseInput(document.getElementById('docket-case-number').value)));
   const newDate = { id: uid(), date: f.docketDate, type: f.hearingType, notes: f.hearingNotes || '' };
   let msg;
   if (existing) {
@@ -1897,7 +1915,8 @@ ${text.substring(0, 60000)}`;
 function confirmImport() {
   let added = 0, updated = 0;
   pendingImports.forEach(f => {
-    const existing = state.cases.find(c => c.caseNumber === f.caseNumber);
+    // Match existing by full caseNumber returned from Claude (exact) OR trailing digits fallback
+  const existing = state.cases.find(c => c.caseNumber === f.caseNumber || caseMatchesShortNum(c.caseNumber, normalizeCaseInput(document.getElementById('docket-case-number').value)));
     const newDate = { id: uid(), date: f.docketDate, type: f.hearingType, notes: f.hearingNotes || '' };
     if (existing) {
       // Don't duplicate the same date+type combo
