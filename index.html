@@ -474,7 +474,7 @@
           <label>Status</label>
           <select id="f-status" onchange="handleStatusChange(this)">
             <option value="active">Active</option>
-            <option value="pending">Pending</option>
+            <option value="pending">Pending Action</option>
             <option value="trial">Trial Prep</option>
             <option value="pled-close">Pled Guilty — Close</option>
             <option value="pled-sentencing">Pled Guilty — Sentencing Hearing</option>
@@ -714,6 +714,20 @@ function daysUntil(iso) {
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
+function statusLabel(status) {
+  const map = {
+    'active': 'Active',
+    'pending': 'Pending Action',
+    'trial': 'Trial Prep',
+    'pled-sentencing': 'Pled — Sentencing',
+    'pled-imposed': 'Pled — To Be Imposed',
+    'pled-close': 'Pled — Closed',
+    'forfeiture': 'Forfeiture',
+    'closed': 'Closed'
+  };
+  return map[status] || status || 'Active';
+}
+
 // ─── Views ──────────────────────────────────────────────────────────
 function showView(v, pushState=true) {
   document.getElementById('view-cases').classList.toggle('hidden', v !== 'cases');
@@ -909,7 +923,7 @@ function renderCasesByDate(today, q) {
         + `<div class="case-defendant">${c.defendant||''}${urgentTag}</div>`
         + `<div class="case-charges">${c.charges||''}</div>`
         + `<div class="case-meta">`
-        + `<span class="badge badge-${c.status||'active'}">${c.status||'active'}</span>`
+        + `<span class="badge badge-${c.status||'active'}">${statusLabel(c.status)}</span>`
         + `<span class="case-next${urgent?' case-next-urgent':''}">${nextLabel}</span>`
         + `</div></div>`;
     });
@@ -1033,7 +1047,7 @@ function renderCases() {
       + `<div class="case-defendant">${c.defendant || 'Unnamed'}${urgentTag}</div>`
       + `<div class="case-charges">${c.charges || 'No charges listed'}</div>`
       + `<div class="case-meta">`
-      + `<span class="badge badge-${c.status||'active'}">${c.status||'active'}</span>`
+      + `<span class="badge badge-${c.status||'active'}">${statusLabel(c.status)}</span>`
       + (next ? `<span class="case-next${(isTrial||isUrgent)?' case-next-urgent':''}">${next.type} · ${fmtShort(next.date)}${(days!==null&&days>=0&&days<=14)?' ('+days+'d)':''}</span>` : '')
       + '</div></div>';
   }).join('');
@@ -1080,7 +1094,7 @@ function setTab(t) {
         <div><div class="info-label">Status</div>
           <select class="info-select badge-select badge-${c.status||'active'}" data-caseid="${c.id}" onchange="handleOverviewStatusChange(this.value,this.dataset.caseid)">
             <option value="active" ${(c.status||'active')==='active'?'selected':''}>Active</option>
-            <option value="pending" ${c.status==='pending'?'selected':''}>Pending</option>
+            <option value="pending" ${c.status==='pending'?'selected':''}>Pending Action</option>
             <option value="trial" ${c.status==='trial'?'selected':''}>Trial Prep</option>
             <option value="pled-sentencing" ${c.status==='pled-sentencing'?'selected':''}>Pled Guilty — Sentencing Hearing</option>
             <option value="pled-imposed" ${c.status==='pled-imposed'?'selected':''}>Pled Guilty — To Be Imposed</option>
