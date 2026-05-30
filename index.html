@@ -1114,12 +1114,23 @@ function openCase(id) {
 function renderDetail() {
   const c = state.cases.find(x => x.id === state.currentCaseId);
   if (!c) { showView('cases'); return; }
-  document.getElementById('det-casenum').textContent = c.caseNumber || '';
+  const protectedBadge = c.manuallyAdded
+    ? ` <span title="Case protected from docket overwrites. Click to remove protection." onclick="toggleManualProtection('${c.id}')" style="cursor:pointer;display:inline-block;background:rgba(80,250,123,0.12);color:var(--green);border:1px solid rgba(80,250,123,0.35);border-radius:4px;font-size:10px;font-family:var(--mono);font-weight:700;padding:2px 7px;margin-left:8px;vertical-align:middle;letter-spacing:0.04em;">🔒 PROTECTED</span>`
+    : '';
+  document.getElementById('det-casenum').innerHTML = (c.caseNumber || '') + protectedBadge;
   document.getElementById('det-name').textContent = c.defendant || '';
   document.getElementById('det-charges').textContent = c.charges || '';
   document.getElementById('tab-court').textContent = `Court Dates (${(c.courtDates||[]).length})`;
   document.getElementById('tab-todos').textContent = `To-Do (${(c.todos||[]).filter(t=>!t.done).length})`;
   setTab(currentTab);
+}
+function toggleManualProtection(caseId) {
+  const c = state.cases.find(x => x.id === caseId);
+  if (!c) return;
+  c.manuallyAdded = !c.manuallyAdded;
+  save();
+  renderDetail();
+  toast(c.manuallyAdded ? '🔒 Case protected from docket overwrites' : '🔓 Protection removed');
 }
 function setTab(t) {
   currentTab = t;
@@ -1629,8 +1640,11 @@ function confirmDocketLookup() {
   if (existing) {
     const alreadyHas = existing.courtDates?.some(d => d.date === f.docketDate && d.type === f.hearingType);
     if (!alreadyHas) existing.courtDates = [...(existing.courtDates||[]), newDate];
-    if (f.defenseCounsel && !existing.defenseCounsel) existing.defenseCounsel = f.defenseCounsel;
-    if (f.judge && !existing.judge) existing.judge = f.judge;
+    // Only update fields if this case was NOT manually added — protect overrides on wrong dockets
+    if (!existing.manuallyAdded) {
+      if (f.defenseCounsel && !existing.defenseCounsel) existing.defenseCounsel = f.defenseCounsel;
+      if (f.judge && !existing.judge) existing.judge = f.judge;
+    }
     msg = `✓ Added court date to ${f.defendant}`;
   } else {
     const c = {
@@ -1638,7 +1652,8 @@ function confirmDocketLookup() {
       status: 'active', court: 'Coffee County Circuit Court',
       judge: f.judge || '', defenseCounsel: f.defenseCounsel || '',
       investigator: '', analyst: '', driveLink: '', summary: '',
-      courtDates: [newDate], todos: [], courtNotes: '', pleaStatus: 'none'
+      courtDates: [newDate], todos: [], courtNotes: '', pleaStatus: 'none',
+      manuallyAdded: true
     };
     state.cases.unshift(c);
     msg = `✓ Added ${f.defendant} to your docket`;
