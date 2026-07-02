@@ -892,7 +892,11 @@ function renderCasesByDate(today, q) {
   const entries = [];
   state.cases.forEach(c => {
     if (c.status === 'closed' || c.status === 'pled-close') return;
-    if (caseFilter === 'active' && c.status === 'forfeiture') return;
+    // Note: forfeiture-status cases are intentionally NOT excluded here even under the
+    // "Active Cases" filter -- this view is already date-driven (only cases with a real
+    // upcoming, non-completed court date produce entries below), so a forfeiture case
+    // with a live hearing on the docket must still show up. Excluding by status here
+    // would hide genuine upcoming hearings, not just stale/resolved forfeiture cases.
     if (caseFilter === 'forfeiture' && c.status !== 'forfeiture') return;
     (c.courtDates||[]).forEach(d => {
       if (!d.completed && d.date >= today) {
