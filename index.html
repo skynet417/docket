@@ -1869,7 +1869,7 @@ ${text.substring(0, 60000)}`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1930,8 +1930,11 @@ ${text.substring(0, 60000)}`;
 function confirmImport() {
   let added = 0, updated = 0;
   pendingImports.forEach(f => {
-    // Match existing by full caseNumber returned from Claude (exact) OR trailing digits fallback
-  const existing = state.cases.find(c => c.caseNumber === f.caseNumber || caseMatchesShortNum(c.caseNumber, normalizeCaseInput(document.getElementById('docket-case-number').value)));
+    // Match existing by full caseNumber returned from Claude (exact) OR trailing-digit fallback
+    // against f.caseNumber itself -- never against the single-lookup modal's input field,
+    // which is unrelated DOM state left over from a different modal/flow.
+    const shortDigits = (f.caseNumber || '').replace(/\D/g, '').slice(-5);
+    const existing = state.cases.find(c => c.caseNumber === f.caseNumber || (shortDigits && caseMatchesShortNum(c.caseNumber, shortDigits)));
     const newDate = { id: uid(), date: f.docketDate, type: f.hearingType, notes: f.hearingNotes || '' };
     if (existing) {
       // Don't duplicate the same date+type combo
