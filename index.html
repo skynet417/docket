@@ -1016,7 +1016,7 @@ function renderCases() {
 
   // Filter by hearing type
   if (caseFilter === 'active') {
-    filtered = filtered.filter(c => c.status !== 'closed' && c.status !== 'pled-close' && c.status !== 'forfeiture' && !c.archived);
+    filtered = filtered.filter(c => c.status !== 'closed' && c.status !== 'pled-close' && !c.archived && (caseView === 'today' || c.status !== 'forfeiture'));
   }
 
   if (caseFilter !== 'all' && caseFilter !== 'active') {
