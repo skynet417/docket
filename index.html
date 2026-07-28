@@ -1944,6 +1944,14 @@ function confirmImport() {
       // Don't duplicate the same date+type combo
       const alreadyHas = existing.courtDates?.some(d => d.date === f.docketDate && d.type === f.hearingType);
       if (!alreadyHas) { existing.courtDates = [...(existing.courtDates||[]), newDate]; }
+      // A case that shows up on a fresh docket scan has a live hearing on the books --
+      // if it was previously marked closed/pled-close, it's not actually closed anymore.
+      // Reactivate it so it reappears in Active Cases / Today's Cases instead of silently
+      // vanishing even though the new date was added successfully.
+      if (existing.status === 'closed' || existing.status === 'pled-close') {
+        existing.status = 'active';
+        delete existing.closedAt;
+      }
       // Add motion to-do if needed
       if (f.isMotion && !existing.todos?.some(t => t.text.includes('Motion') && t.text.includes(f.docketDate))) {
         existing.todos = [...(existing.todos||[]), { id: uid(), text: `⚑ Prep for Motion Hearing — ${fmtDate(f.docketDate)}`, done: false }];
