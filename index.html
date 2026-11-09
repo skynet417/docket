@@ -558,6 +558,11 @@
         <div class="section-head">
           <div class="section-title" id="import-count-label"></div>
         </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;">
+          <label for="import-docket-date" style="font-size:13px;font-weight:700;color:var(--text);">Court date</label>
+          <input type="date" id="import-docket-date" oninput="updateImportDateWarning()" style="font-size:14px;font-weight:700;padding:5px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+          <span id="import-date-warning" style="font-size:12px;font-weight:700;color:var(--orange);"></span>
+        </div>
         <div class="import-results" id="import-results"></div>
       </div>
     </div>
@@ -673,6 +678,7 @@ async function loadCasesFromDrive() {
         seen.add(c.id);
         return true;
       });
+      if (repairMisdatedScanNov2026()) saveCasesToDrive();
     } else {
       state.cases = [];
     }
@@ -683,6 +689,32 @@ async function loadCasesFromDrive() {
     // Fall back to seed data if drive fails
     if (!state.cases.length) state.cases = SEED_CASES;
   }
+}
+
+// One-time repair: the 11/9/2026 docket scan stamped every hearing with the print date
+// (11/9) instead of the court date (11/12). Those entries all share one import batch
+// (ids starting "mw9nl1o"). Where the case already has an 11/12 setting, the bad entry
+// is a duplicate and is removed; otherwise it is moved to 11/12. Idempotent: once fixed,
+// nothing matches and this does nothing.
+function repairMisdatedScanNov2026() {
+  let changed = 0;
+  state.cases.forEach(c => {
+    if (!Array.isArray(c.courtDates)) return;
+    const hasReal = c.courtDates.some(d => d.date === '2026-11-12');
+    const next = [];
+    c.courtDates.forEach(d => {
+      if (d && d.date === '2026-11-09' && typeof d.id === 'string' && d.id.startsWith('mw9nl1o')) {
+        changed++;
+        if (hasReal) return;            // duplicate of an existing 11/12 setting
+        next.push({ ...d, date: '2026-11-12' });
+        return;
+      }
+      next.push(d);
+    });
+    c.courtDates = next;
+  });
+  if (changed) console.log('Repaired ' + changed + ' misdated court date(s) from the 11/9 scan.');
+  return changed > 0;
 }
 
 async function saveCasesToDrive() {
@@ -729,6 +761,68 @@ function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+// ─── Docket date detection ───────────────────────────────────────────
+// The docket PDF carries more than one date: the print/run date (usually the day
+// it was generated, often today) and the actual court session date. The old code
+// took the FIRST m/d/yyyy in the text, which on these printouts is the print date.
+// This scores every date in the text by its surroundings and how often it repeats,
+// throws out print/DOB/offense-style dates, and returns null rather than guessing today.
+const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+function isoFromParts(y, m, d) {
+  y = Number(y); m = Number(m); d = Number(d);
+  if (y < 100) y += 2000;
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 2000 && y <= 2100)) return null;
+  const dt = new Date(y, m - 1, d);
+  if (dt.getMonth() !== m - 1) return null;
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function isValidISO(v) {
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !!isoFromParts(v.slice(0,4), v.slice(5,7), v.slice(8,10));
+}
+function detectDocketDate(text, filename) {
+  const scores = {};
+  const bump = (iso, n) => { if (iso) scores[iso] = (scores[iso] || 0) + n; };
+  const NEG = /(print|printed|run date|run on|generated|report date|as of|created|dob|birth|offense|arrest|filed|indict|bound over|warrant|booked|released|disposed)[^\d]{0,25}$/i;
+  const POS = /(docket|court date|session|setting|calendar|hearing date|set for|date:?)[^\d]{0,25}$/i;
+  const consider = (iso, idx) => {
+    if (!iso) return;
+    const before = text.slice(Math.max(0, idx - 40), idx);
+    if (NEG.test(before)) return;
+    bump(iso, 1);
+    if (POS.test(before)) bump(iso, 6);
+  };
+  let m;
+  const numRe = /\b(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})\b/g;
+  while ((m = numRe.exec(text))) consider(isoFromParts(m[3], m[1], m[2]), m.index);
+  const wordRe = new RegExp('\\b(' + MONTHS.join('|') + ')\\s+(\\d{1,2}),?\\s+(\\d{4})', 'gi');
+  while ((m = wordRe.exec(text))) consider(isoFromParts(m[3], MONTHS.indexOf(m[1].toLowerCase()) + 1, m[2]), m.index);
+  // A date in the filename (e.g. "Docket 11-12-26.pdf") is a strong signal
+  if (filename) {
+    const fm = filename.match(/(\d{1,2})[-_.](\d{1,2})[-_.](\d{4}|\d{2})/) || null;
+    if (fm) bump(isoFromParts(fm[3], fm[1], fm[2]), 10);
+    const fi = filename.match(/(\d{4})[-_.](\d{1,2})[-_.](\d{1,2})/);
+    if (fi) bump(isoFromParts(fi[1], fi[2], fi[3]), 10);
+  }
+  const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? 1 : -1));
+  return ranked.length ? ranked[0][0] : null;
+}
+// Pick the session date: Claude's read of the docket wins when valid and consistent,
+// otherwise fall back to the text heuristic. Never silently defaults to today.
+function resolveDocketDate(claudeDates, heuristicDate) {
+  const valid = (claudeDates || []).filter(isValidISO);
+  if (valid.length) {
+    const counts = {};
+    valid.forEach(d => counts[d] = (counts[d] || 0) + 1);
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  return heuristicDate || null;
+}
+function docketDateWarning(iso) {
+  if (!iso) return '⚠ Could not read the court date from this docket. Set it below before importing.';
+  if (iso === todayISO()) return '⚠ Detected date is today. Confirm that is the actual court date, not the print date.';
+  return '';
+}
+
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso + 'T00:00:00');
@@ -1556,11 +1650,7 @@ async function lookupCaseInDocket(text, shortNum) {
   // shortNum is just the last 4-5 digits, e.g. "50557"
   const statusEl = document.getElementById('docket-status');
 
-  let docketDate = todayISO();
-  const mdyMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mdyMatch) {
-    docketDate = `${mdyMatch[3]}-${String(mdyMatch[1]).padStart(2,'0')}-${String(mdyMatch[2]).padStart(2,'0')}`;
-  }
+  const guessedDate = detectDocketDate(text, '');
 
   const prompt = `You are parsing a Coffee County Circuit Court docket. Find the case whose case number ENDS with "${shortNum}". Coffee County case numbers look like "16CC1-2025-CR-50557" — the last segment after the final dash is the number you are matching.
 
@@ -1572,7 +1662,7 @@ Extract all details for ONLY that specific case and return a JSON object with:
 - judge: judge name (appears as "Judge:" or "Hon."). Empty string if not found.
 - hearingType: one of: Discussion, Plea Hearing, Motion Hearing, Trial, Sentencing, Arraignment, Status Hearing, Probation Violation Continuance, Review Hearing
 - hearingNotes: any hearing notes (empty string if none)
-- docketDate: "${docketDate}"
+- docketDate: the date this case is SET TO BE HEARD in court, formatted YYYY-MM-DD. This is the court session / docket date, NOT the date the docket was printed, generated, or run (printouts often show a print date such as today's date, ${todayISO()}; ignore it), and not an offense, arrest, filing, or birth date.${guessedDate ? ' A text scan suggests the session date may be ' + guessedDate + '; verify against the docket.' : ''}
 
 If NO case number ending in "${shortNum}" is found, return: {"notFound": true}
 
@@ -1609,6 +1699,7 @@ ${text.substring(0, 60000)}`;
       return;
     }
 
+    result.docketDate = resolveDocketDate([result.docketDate], guessedDate) || '';
     docketLookupResult = result;
     statusEl.style.color = 'var(--green)';
     statusEl.textContent = `✓ Found — ${result.defendant}`;
@@ -1621,9 +1712,14 @@ ${text.substring(0, 60000)}`;
       <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">${result.defendant}</div>
       ${result.charges ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">${result.charges}</div>` : ''}
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;">
-        ${result.hearingType ? `<span style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--cyan);">${result.hearingType} · ${fmtDate(result.docketDate)}</span>` : ''}
+        ${result.hearingType ? `<span style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--cyan);">${result.hearingType}</span>` : ''}
         ${result.defenseCounsel ? `<span style="font-size:11px;color:var(--muted);">Defense: ${result.defenseCounsel}</span>` : ''}
         ${result.judge ? `<span style="font-size:11px;color:var(--muted);">Judge: ${result.judge}</span>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;">
+        <label for="lookup-docket-date" style="font-size:13px;font-weight:700;color:var(--text);">Court date</label>
+        <input type="date" id="lookup-docket-date" value="${result.docketDate}" oninput="document.getElementById('lookup-date-warning').textContent = docketDateWarning(this.value)" style="font-size:14px;font-weight:700;padding:5px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+        <span id="lookup-date-warning" style="font-size:12px;font-weight:700;color:var(--orange);">${docketDateWarning(result.docketDate)}</span>
       </div>`;
 
     document.getElementById('docket-import-btn').classList.remove('hidden');
@@ -1637,6 +1733,9 @@ ${text.substring(0, 60000)}`;
 function confirmDocketLookup() {
   if (!docketLookupResult) return;
   const f = docketLookupResult;
+  const dEl = document.getElementById('lookup-docket-date');
+  if (dEl) f.docketDate = dEl.value;
+  if (!isValidISO(f.docketDate)) { alert('Set the court date before importing.'); if (dEl) dEl.focus(); return; }
   // Match existing by full caseNumber returned from Claude (exact) OR trailing digits fallback
   const existing = state.cases.find(c => c.caseNumber === f.caseNumber || caseMatchesShortNum(c.caseNumber, normalizeCaseInput(document.getElementById('docket-case-number').value)));
   const newDate = { id: uid(), date: f.docketDate, type: f.hearingType, notes: f.hearingNotes || '' };
@@ -1844,12 +1943,8 @@ async function parseDocketWithClaude(text, filename) {
   const statusEl = document.getElementById('parse-status');
   statusEl.textContent = '🤖 Claude is reading the docket...';
 
-  // Extract date from text for context
-  let docketDate = todayISO();
-  const mdyMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mdyMatch) {
-    docketDate = `${mdyMatch[3]}-${String(mdyMatch[1]).padStart(2,'0')}-${String(mdyMatch[2]).padStart(2,'0')}`;
-  }
+  // Heuristic guess at the court session date (NOT the print date) -- Claude confirms below
+  const guessedDate = detectDocketDate(text, filename);
 
   const prompt = `You are parsing a Coffee County Circuit Court docket. Extract ALL cases where "Pl Atty: Jason Ponder" appears.
 
@@ -1860,7 +1955,7 @@ For each case return a JSON array. Each object must have:
 - charges: all charge descriptions joined with "; " (use the bold charge names, not statute numbers)
 - hearingType: one of: Discussion, Plea Hearing, Motion Hearing, Trial, Sentencing, Arraignment, Status Hearing, Probation Violation Continuance, Review Hearing
 - hearingNotes: any hearing notes text (empty string if none)
-- docketDate: "${docketDate}"
+- docketDate: the date this case is SET TO BE HEARD in court, formatted YYYY-MM-DD. This is the court session / docket date shown in the docket header or on the case entry. It is NOT the date the docket was printed, generated, or run (printouts often show a print date such as today's date, ${todayISO()}, in a header or footer; ignore it). It is also not an offense, arrest, filing, or birth date.${guessedDate ? ' A text scan suggests the session date may be ' + guessedDate + '; verify against the docket.' : ''}
 
 Return ONLY a valid JSON array, no other text, no markdown, no explanation.
 
@@ -1905,9 +2000,14 @@ ${text.substring(0, 60000)}`;
     // Mark motions
     found = found.map(f => ({ ...f, isMotion: /motion/i.test(f.hearingType) }));
 
+    const docketDate = resolveDocketDate(found.map(f => f.docketDate), guessedDate);
+    const dateInput = document.getElementById('import-docket-date');
+    dateInput.value = docketDate || '';
+    updateImportDateWarning();
+
     pendingImports = found;
     const existing = state.cases.map(c => c.caseNumber);
-    statusEl.textContent = `Found ${found.length} case${found.length!==1?'s':''} for Jason Ponder on ${fmtDate(docketDate)}`;
+    statusEl.textContent = `Found ${found.length} case${found.length!==1?'s':''} for Jason Ponder${docketDate ? ' on ' + fmtDate(docketDate) : ''}`;
     document.getElementById('import-count-label').textContent = `${found.length} case${found.length!==1?'s':''} found`;
     document.getElementById('import-results').innerHTML = found.map(f => {
       const isNew = !existing.includes(f.caseNumber);
@@ -1931,7 +2031,22 @@ ${text.substring(0, 60000)}`;
 }
 
 
+function updateImportDateWarning() {
+  const v = document.getElementById('import-docket-date').value;
+  const w = document.getElementById('import-date-warning');
+  w.textContent = docketDateWarning(v);
+}
+
 function confirmImport() {
+  // One docket = one court session. The date shown (and editable) in the modal is the
+  // date every imported hearing gets, so what you see is what gets saved.
+  const sessionDate = document.getElementById('import-docket-date').value;
+  if (!isValidISO(sessionDate)) {
+    alert('Set the court date for this docket before importing.');
+    document.getElementById('import-docket-date').focus();
+    return;
+  }
+  pendingImports.forEach(f => { f.docketDate = sessionDate; });
   let added = 0, updated = 0;
   pendingImports.forEach(f => {
     // Match existing by full caseNumber returned from Claude (exact) OR trailing-digit fallback
